@@ -1,0 +1,4061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horse Race Predictor — Improved Best Bets Engine</title>
+
+<style>
+:root{
+  --board-950:#0F2A20;
+  --board-900:#15332A;
+  --board-800:#1B3A2C;
+  --paper:#F1E9D6;
+  --paper-dim:#E4D9BE;
+  --paper-line:#CFC2A0;
+  --amber:#D9A73B;
+  --amber-dim:#8A6A26;
+  --red:#8B2A2A;
+  --green:#2E6E45;
+  --blue:#315A7D;
+  --ink:#1E1B14;
+  --ink-soft:#4A4433;
+  --mono:ui-monospace,"SF Mono","Roboto Mono","Courier New",monospace;
+  --sans:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:#fff;
+  color:var(--ink);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{
+  max-width:1400px;
+  margin:0 auto;
+}
+
+header{
+  background:linear-gradient(180deg,var(--board-900),var(--board-950));
+  padding:30px 20px 25px;
+  border-bottom:3px solid var(--amber-dim);
+}
+
+.eyebrow{
+  font-family:var(--mono);
+  color:var(--amber);
+  font-size:12px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  margin:0 0 8px;
+}
+
+h1{
+  margin:0;
+  color:var(--paper);
+  font-weight:800;
+  font-size:clamp(26px,5vw,40px);
+}
+
+.tagline{
+  color:#B9C9BE;
+  font-size:14px;
+  max-width:75ch;
+  margin:10px 0 0;
+  line-height:1.5;
+}
+
+main{
+  background:var(--paper);
+  padding:22px 16px 60px;
+}
+
+section{
+  margin-bottom:30px;
+}
+
+h2{
+  font-size:13px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  margin:0 0 14px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+h2::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:var(--paper-line);
+}
+
+.step-num{
+  font-family:var(--mono);
+  background:var(--board-950);
+  color:var(--amber);
+  font-size:11px;
+  padding:3px 7px;
+  border-radius:2px;
+}
+
+/* UPLOAD */
+
+.upload-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+  gap:15px;
+}
+
+.upload-card{
+  border:1.5px dashed var(--paper-line);
+  border-radius:5px;
+  padding:17px;
+  background:var(--paper-dim);
+}
+
+.upload-card h3{
+  margin:0 0 6px;
+  font-size:15px;
+}
+
+.upload-card p{
+  margin:0 0 12px;
+  font-size:12px;
+  color:var(--ink-soft);
+  line-height:1.5;
+}
+
+.file-btn{
+  display:inline-flex;
+  align-items:center;
+  background:var(--board-950);
+  color:var(--paper);
+  border:none;
+  padding:9px 14px;
+  border-radius:4px;
+  font-size:12.5px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.file-btn:hover{
+  background:var(--board-800);
+}
+
+input[type=file]{
+  display:none;
+}
+
+.status{
+  font-family:var(--mono);
+  font-size:11.5px;
+  margin-top:8px;
+  min-height:16px;
+  white-space:pre-wrap;
+}
+
+.status.ok{
+  color:var(--green);
+  font-weight:700;
+}
+
+.status.err{
+  color:var(--red);
+  font-weight:700;
+}
+
+.file-meta-box{
+  margin-top:9px;
+  padding:8px 10px;
+  background:#fff;
+  border:1px solid var(--paper-line);
+  border-radius:3px;
+  font-family:var(--mono);
+  font-size:11px;
+  display:none;
+  line-height:1.6;
+}
+
+.file-meta-box.show{
+  display:block;
+}
+
+/* BUTTONS */
+
+.table-actions{
+  display:flex;
+  gap:9px;
+  margin-top:11px;
+  flex-wrap:wrap;
+}
+
+.primary-btn,
+.ghost-btn,
+.small-btn{
+  border-radius:4px;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.primary-btn{
+  background:var(--amber);
+  color:var(--ink);
+  border:none;
+  padding:11px 21px;
+  font-size:13px;
+}
+
+.ghost-btn{
+  background:none;
+  border:1px solid var(--ink-soft);
+  color:var(--ink-soft);
+  padding:10px 15px;
+  font-size:12.5px;
+}
+
+.small-btn{
+  background:transparent;
+  border:1px solid var(--board-950);
+  color:var(--board-950);
+  padding:5px 9px;
+  font-size:11px;
+}
+
+/* TABLE */
+
+.table-wrap{
+  overflow-x:auto;
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  background:#fff;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  min-width:1100px;
+}
+
+thead th{
+  text-align:left;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--paper);
+  background:var(--board-900);
+  padding:9px;
+  white-space:nowrap;
+}
+
+tbody td{
+  padding:5px 6px;
+  border-bottom:1px solid var(--paper-line);
+  vertical-align:middle;
+}
+
+tbody tr:nth-child(even){
+  background:rgba(0,0,0,.018);
+}
+
+tbody input{
+  border:1px solid transparent;
+  background:transparent;
+  padding:4px 5px;
+  font-size:12px;
+  width:100%;
+}
+
+tbody input:hover,
+tbody input:focus{
+  border-color:var(--paper-line);
+  background:#fff;
+}
+
+.scratched-row{
+  opacity:.45;
+}
+
+.scratched-row input{
+  text-decoration:line-through;
+}
+
+.del-btn{
+  background:none;
+  border:none;
+  color:var(--red);
+  cursor:pointer;
+  font-size:15px;
+}
+
+/* TABS */
+
+.tabbar{
+  display:none;
+  gap:0;
+  margin:0 0 18px;
+  border-bottom:2px solid var(--paper-line);
+  overflow-x:auto;
+}
+
+.tabbar button{
+  appearance:none;
+  background:none;
+  border:none;
+  cursor:pointer;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  padding:10px 13px;
+  color:var(--ink-soft);
+  border-bottom:3px solid transparent;
+  margin-bottom:-2px;
+  white-space:nowrap;
+}
+
+.tabbar button.on{
+  color:var(--board-950);
+  border-bottom-color:var(--board-950);
+  font-weight:800;
+}
+
+/* BEST BETS */
+
+.bestof{
+  border:2px solid var(--board-950);
+  border-radius:5px;
+  padding:17px;
+  background:var(--paper);
+}
+
+.bestof h3{
+  margin:0 0 4px;
+  font-size:18px;
+}
+
+.best-pick{
+  border:1px solid var(--paper-line);
+  border-left:6px solid var(--amber);
+  border-radius:4px;
+  background:#fff;
+  padding:14px;
+  margin:11px 0;
+}
+
+.best-header{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.best-race{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--board-950);
+  font-weight:800;
+}
+
+.best-horse{
+  font-size:16px;
+  font-weight:800;
+  margin-top:3px;
+}
+
+.model-prob{
+  font-family:var(--mono);
+  font-size:20px;
+  font-weight:800;
+  color:var(--board-950);
+}
+
+.confidence{
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:800;
+}
+
+.conf-strong{
+  color:var(--green);
+}
+
+.conf-solid{
+  color:var(--blue);
+}
+
+.conf-lean{
+  color:#8A6A26;
+}
+
+.conf-caution{
+  color:var(--red);
+}
+
+.metric-line{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--ink-soft);
+  line-height:1.65;
+  margin-top:5px;
+}
+
+.reason-box{
+  margin-top:8px;
+  padding:9px;
+  background:var(--paper-dim);
+  border-radius:3px;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.warning-box{
+  margin-top:9px;
+  padding:8px 9px;
+  background:#fff4d0;
+  border:1px solid #d8bd68;
+  border-radius:3px;
+  font-size:11.5px;
+  line-height:1.45;
+}
+
+.badge{
+  display:inline-block;
+  background:var(--board-950);
+  color:var(--amber);
+  font-family:var(--mono);
+  font-size:10px;
+  padding:2px 5px;
+  border-radius:3px;
+  font-weight:800;
+  margin-left:4px;
+}
+
+.badge-red{
+  background:var(--red);
+  color:#fff;
+}
+
+.badge-green{
+  background:var(--green);
+  color:#fff;
+}
+
+.badge-blue{
+  background:var(--blue);
+  color:#fff;
+}
+
+/* CARDS */
+
+.race-card,
+.analysis-card,
+.h2h-card{
+  border:1px solid var(--paper-line);
+  background:#fff;
+  border-radius:4px;
+  padding:15px;
+  margin-bottom:15px;
+}
+
+.race-card h3,
+.analysis-card h3,
+.h2h-card h3{
+  margin:0 0 10px;
+  font-size:16px;
+}
+
+.compact-table{
+  width:100%;
+  min-width:900px;
+  font-size:11.5px;
+}
+
+.compact-table th{
+  padding:6px;
+}
+
+.compact-table td{
+  padding:6px;
+}
+
+/* ANALYSIS */
+
+.analysis-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+@media(max-width:700px){
+  .analysis-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.analysis-box{
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  padding:12px;
+  background:var(--paper-dim);
+}
+
+.analysis-box.contender{
+  border-left:5px solid var(--green);
+}
+
+.analysis-box.pretender{
+  border-left:5px solid var(--red);
+}
+
+.analysis-box h4{
+  margin:0 0 8px;
+  font-family:var(--mono);
+  font-size:11px;
+  text-transform:uppercase;
+}
+
+.analysis-item{
+  padding:7px 0;
+  border-bottom:1px dotted var(--paper-line);
+  font-size:12px;
+  line-height:1.4;
+}
+
+/* H2H */
+
+.h2h-select-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-bottom:15px;
+}
+
+@media(max-width:700px){
+  .h2h-select-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.h2h-select-grid select{
+  width:100%;
+  padding:8px;
+  border:1px solid var(--paper-line);
+  border-radius:3px;
+  font-family:var(--mono);
+}
+
+.h2h-comparison-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+@media(max-width:700px){
+  .h2h-comparison-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.h2h-stat{
+  font-family:var(--mono);
+  font-size:11px;
+  padding:5px 0;
+  border-bottom:1px dotted var(--paper-line);
+}
+
+/* MODAL */
+
+#ppOverlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(15,42,32,.7);
+  z-index:100;
+  overflow-y:auto;
+  padding:12px;
+}
+
+#ppOverlay.show{
+  display:block;
+}
+
+.pp-card{
+  max-width:1050px;
+  margin:15px auto;
+  background:var(--paper);
+  border-radius:5px;
+  border:1px solid var(--paper-line);
+  padding:18px;
+  position:relative;
+}
+
+.pp-close{
+  position:absolute;
+  top:8px;
+  right:10px;
+  background:none;
+  border:none;
+  font-size:22px;
+  cursor:pointer;
+}
+
+.pp-table{
+  width:100%;
+  min-width:750px;
+  border-collapse:collapse;
+  font-family:var(--mono);
+  font-size:10.5px;
+}
+
+.pp-table th{
+  background:var(--board-900);
+  color:var(--paper);
+  padding:6px;
+}
+
+.pp-table td{
+  padding:5px;
+  border-bottom:1px solid var(--paper-line);
+}
+
+.work-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:8px;
+}
+
+.work-item{
+  background:#fff;
+  border:1px solid var(--paper-line);
+  padding:8px;
+  border-radius:3px;
+  font-family:var(--mono);
+  font-size:10.5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<header>
+<p class="eyebrow">Professional Handicapping & Value Engine</p>
+<h1>Horse Race Predictor</h1>
+<p class="tagline">
+Improved Best Bets using Prime Power, current speed, recent form,
+class signals, trainer/jockey performance, relative strength,
+morning-line value and race-confidence separation.
+</p>
+</header>
+
+<main>
+
+<!-- =========================================================
+     STEP 1
+========================================================= -->
+
+<section>
+
+<h2>
+<span class="step-num">1</span>
+Load Race Data & Scratches / Rider Changes
+</h2>
+
+<div class="upload-grid">
+
+<div class="upload-card">
+
+<h3>Brisnet .DRF Single File</h3>
+
+<p>
+Reads the Brisnet single-file layout and attempts to handle
+CSV, DRF, TXT, BOM, CRLF/LF and common delimiter variations.
+</p>
+
+<label class="file-btn" for="drfInput">
+Select .DRF / .CSV
+</label>
+
+<input
+type="file"
+id="drfInput"
+accept=".drf,.csv,.txt,.data,text/csv,text/plain"
+>
+
+<div id="drfStatus" class="status"></div>
+
+</div>
+
+
+<div class="upload-card">
+
+<h3>Equibase RSS / XML Feed</h3>
+
+<p>
+Upload the XML/RSS file or paste its XML contents.
+Scratch and rider matching is normalized to reduce
+name-format failures.
+</p>
+
+<label class="file-btn" for="rssInput">
+Select XML / RSS
+</label>
+
+<input
+type="file"
+id="rssInput"
+accept=".xml,.rss,.txt,application/xml,text/xml"
+>
+
+<textarea
+id="rssPaste"
+rows="3"
+style="width:100%;margin-top:9px;font-family:var(--mono);font-size:11px;padding:7px;"
+placeholder="Or paste XML/RSS contents here..."
+></textarea>
+
+<div style="margin-top:8px;">
+<button class="small-btn" id="applyRssBtn">
+Apply Feed Updates
+</button>
+</div>
+
+<div class="file-meta-box" id="rssMetaBox">
+<div>
+<strong>Loaded:</strong>
+<span id="rssFileName">-</span>
+</div>
+<div>
+<strong>Feed Date:</strong>
+<span id="rssFileDate">-</span>
+</div>
+<div>
+<strong>Feed Items:</strong>
+<span id="rssItemCount">-</span>
+</div>
+</div>
+
+<div id="rssStatus" class="status"></div>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- =========================================================
+     STEP 2
+========================================================= -->
+
+<section>
+
+<h2>
+<span class="step-num">2</span>
+Field Entries
+</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+
+<tr>
+<th>Race</th>
+<th>Post</th>
+<th>Horse</th>
+<th>Trainer</th>
+<th>Jockey</th>
+<th>M/L</th>
+<th>Prime Power</th>
+<th>Last Speed</th>
+<th>Scr</th>
+<th></th>
+</tr>
+
+</thead>
+
+<tbody id="rowsBody"></tbody>
+
+</table>
+
+</div>
+
+<div class="table-actions">
+
+<button class="ghost-btn" id="addRowBtn">
++ Add Runner
+</button>
+
+<button class="ghost-btn" id="clearBtn">
+Clear All
+</button>
+
+<button class="primary-btn" id="computeBtn">
+Compute Race Card →
+</button>
+
+</div>
+
+</section>
+
+
+<!-- =========================================================
+     TABS
+========================================================= -->
+
+<div class="tabbar" id="tabbar">
+
+<button data-tab="card" class="on">
+Full Race Cards
+</button>
+
+<button data-tab="best">
+Best Bets
+</button>
+
+<button data-tab="analysis">
+Contenders / Pretenders
+</button>
+
+<button data-tab="h2h">
+Head-to-Head
+</button>
+
+</div>
+
+
+<section id="cardSection" style="display:none;"></section>
+
+<section id="bestSection" style="display:none;"></section>
+
+<section id="analysisSection" style="display:none;"></section>
+
+<section id="h2hSection" style="display:none;"></section>
+
+</main>
+
+</div>
+
+
+<!-- =========================================================
+     PP MODAL
+========================================================= -->
+
+<div id="ppOverlay">
+
+<div class="pp-card">
+
+<button
+class="pp-close"
+id="ppCloseBtn">
+✕
+</button>
+
+<div id="ppContent"></div>
+
+</div>
+
+</div>
+
+
+<script>
+
+"use strict";
+
+/* ============================================================
+   GLOBAL STATE
+============================================================ */
+
+let rows = [];
+let rowId = 1;
+let computedRaces = {};
+
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+const $ = id => document.getElementById(id);
+
+function safe(v){
+    return String(v ?? "")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#39;");
+}
+
+function number(v){
+    if(v === null || v === undefined) return 0;
+
+    const n = parseFloat(
+        String(v)
+        .replace(/[^0-9.+-]/g,"")
+    );
+
+    return Number.isFinite(n) ? n : 0;
+}
+
+
+/*
+Normalize horse/rider names.
+
+Example:
+
+"O'Connor"
+"OCONNOR"
+"O' CONNOR"
+
+will become comparable.
+*/
+
+function normalizeName(v){
+
+    return String(v || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g,"")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g,"");
+}
+
+
+/* ============================================================
+   ROW CREATION
+============================================================ */
+
+function newRow(partial = {}){
+
+    return Object.assign({
+
+        id: rowId++,
+
+        race:"1",
+        post:"1",
+        horse:"",
+
+        trainer:"",
+        trainerStarts:0,
+        trainerWins:0,
+        trainerPlaces:0,
+        trainerShows:0,
+
+        jockey:"",
+        origJockey:"",
+
+        jockeyStarts:0,
+        jockeyWins:0,
+        jockeyPlaces:0,
+        jockeyShows:0,
+
+        starts:0,
+        wins:0,
+        places:0,
+        shows:0,
+
+        odds:"",
+
+        primePower:0,
+        score:"",
+
+        lastSpeed:0,
+        bestSpeed:0,
+
+        runStyle:"",
+
+        scratched:false,
+        jockeyChanged:false,
+
+        ppRaces:[],
+        ppWorks:[]
+
+    },partial);
+}
+
+
+/* ============================================================
+   RENDER INPUT TABLE
+============================================================ */
+
+function renderRows(){
+
+    const body = $("rowsBody");
+
+    body.innerHTML = "";
+
+    rows.forEach((r,index)=>{
+
+        const tr = document.createElement("tr");
+
+        if(r.scratched){
+            tr.classList.add("scratched-row");
+        }
+
+        tr.innerHTML = `
+
+        <td>
+            <input value="${safe(r.race)}" data-field="race">
+        </td>
+
+        <td>
+            <input value="${safe(r.post)}" data-field="post">
+        </td>
+
+        <td>
+            <input value="${safe(r.horse)}" data-field="horse">
+        </td>
+
+        <td>
+            <input
+                value="${safe(r.trainer)}"
+                data-field="trainer"
+                placeholder="Trainer">
+        </td>
+
+        <td>
+
+            <input
+                value="${safe(r.jockey)}"
+                data-field="jockey"
+                placeholder="Jockey">
+
+            ${
+                r.jockeyChanged
+                ?
+                '<span class="badge badge-red">CHANGED</span>'
+                :
+                ''
+            }
+
+        </td>
+
+        <td>
+            <input value="${safe(r.odds)}" data-field="odds">
+        </td>
+
+        <td>
+            <input
+                value="${safe(r.score || r.primePower)}"
+                data-field="score"
+                style="font-weight:700;">
+        </td>
+
+        <td>
+            <input
+                value="${safe(r.lastSpeed)}"
+                data-field="lastSpeed">
+        </td>
+
+        <td style="text-align:center;">
+            <input
+                type="checkbox"
+                ${r.scratched ? "checked" : ""}
+                data-field="scratched">
+        </td>
+
+        <td>
+
+            <button
+                class="del-btn"
+                data-delete="${r.id}">
+                ✕
+            </button>
+
+        </td>
+
+        `;
+
+        tr.querySelectorAll("[data-field]").forEach(input=>{
+
+            input.addEventListener("input",function(){
+
+                const field = this.dataset.field;
+
+                if(field === "scratched"){
+
+                    r.scratched = this.checked;
+
+                    tr.classList.toggle(
+                        "scratched-row",
+                        r.scratched
+                    );
+
+                }else{
+
+                    r[field] = this.value;
+
+                }
+
+            });
+
+        });
+
+        tr.querySelector("[data-delete]")
+          .addEventListener("click",()=>{
+
+              rows = rows.filter(x=>x.id !== r.id);
+
+              renderRows();
+
+          });
+
+        body.appendChild(tr);
+
+    });
+
+}
+
+
+/* ============================================================
+   ADD / CLEAR
+============================================================ */
+
+$("addRowBtn").addEventListener("click",()=>{
+
+    rows.push(newRow());
+
+    renderRows();
+
+});
+
+$("clearBtn").addEventListener("click",()=>{
+
+    rows = [];
+    computedRaces = {};
+
+    renderRows();
+
+});
+
+
+/* ============================================================
+   CSV PARSER
+============================================================ */
+
+function parseCSVLine(line,delimiter=","){
+
+    const result = [];
+
+    let current = "";
+    let quoted = false;
+
+    for(let i=0;i<line.length;i++){
+
+        const ch = line[i];
+
+        if(quoted){
+
+            if(ch === '"' && line[i+1] === '"'){
+
+                current += '"';
+                i++;
+
+            }else if(ch === '"'){
+
+                quoted = false;
+
+            }else{
+
+                current += ch;
+
+            }
+
+        }else{
+
+            if(ch === '"'){
+
+                quoted = true;
+
+            }else if(ch === delimiter){
+
+                result.push(current.trim());
+
+                current = "";
+
+            }else{
+
+                current += ch;
+
+            }
+
+        }
+
+    }
+
+    result.push(current.trim());
+
+    return result;
+
+}
+
+
+/*
+Detect likely delimiter.
+
+This is important because some exported files
+may not use comma consistently.
+*/
+
+function detectDelimiter(text){
+
+    const line = text
+        .split(/\r\n|\n|\r/)
+        .find(x=>x.trim());
+
+    if(!line) return ",";
+
+    const candidates = [",","\t","|",";"];
+
+    let best = ",";
+    let bestCount = 0;
+
+    candidates.forEach(delim=>{
+
+        const count = parseCSVLine(line,delim).length;
+
+        if(count > bestCount){
+
+            bestCount = count;
+            best = delim;
+
+        }
+
+    });
+
+    return best;
+}
+
+
+/* ============================================================
+   BRIS FIELD HELPERS
+============================================================ */
+
+function getField(fields,n){
+
+    if(fields[n-1] === undefined){
+        return "";
+    }
+
+    return String(fields[n-1])
+        .trim()
+        .replace(/^["']|["']$/g,"");
+
+}
+
+
+function getNumber(fields,n){
+
+    return number(getField(fields,n));
+
+}
+
+
+/* ============================================================
+   PRIME POWER
+============================================================ */
+
+function extractPrimePower(fields){
+
+    let value = getNumber(fields,251);
+
+    if(!value || value <= 0){
+        return "";
+    }
+
+    /*
+    Some Bris exports store Prime Power scaled.
+    */
+
+    if(value > 500){
+        value = value / 10;
+    }
+
+    if(value >= 50){
+        return value.toFixed(1);
+    }
+
+    return "";
+}
+
+
+/* ============================================================
+   DATE / DISTANCE
+============================================================ */
+
+function formatDate(value){
+
+    const s = String(value || "");
+
+    if(/^\d{8}$/.test(s)){
+
+        return (
+            s.substring(4,6)+"/"+
+            s.substring(6,8)+"/"+
+            s.substring(0,4)
+        );
+
+    }
+
+    return s;
+
+}
+
+
+function formatDistance(value){
+
+    let yards = number(value);
+
+    if(!yards){
+        return value || "N/A";
+    }
+
+    /*
+    Some exports represent distance in another scale.
+    */
+
+    if(yards > 2500){
+        yards = yards / 3;
+    }
+
+    const furlongs = yards / 220;
+
+    if(furlongs < 8){
+
+        const rounded =
+            Math.round(furlongs * 2) / 2;
+
+        return rounded + "f";
+
+    }
+
+    const miles = yards / 1760;
+
+    if(Math.abs(miles - 1) < .03)
+        return "1m";
+
+    if(Math.abs(miles - 1.0625) < .03)
+        return "1 1/16m";
+
+    if(Math.abs(miles - 1.125) < .03)
+        return "1 1/8m";
+
+    if(Math.abs(miles - 1.25) < .03)
+        return "1 1/4m";
+
+    return miles.toFixed(2)+"m";
+
+}
+
+
+/* ============================================================
+   LOAD BRIS FILE
+============================================================ */
+
+function loadDRF(text){
+
+    try{
+
+        text = text.replace(/^\uFEFF/,"");
+
+        /*
+        Normalize unusual line endings.
+        */
+
+        const lines = text
+            .split(/\r\n|\n|\r/)
+            .filter(x=>x.trim().length);
+
+        if(!lines.length){
+
+            throw new Error(
+                "The selected file contains no readable rows."
+            );
+
+        }
+
+        const delimiter = detectDelimiter(text);
+
+        const newRows = [];
+
+        lines.forEach(line=>{
+
+            const fields =
+                parseCSVLine(line,delimiter);
+
+            /*
+            A Bris single file should have hundreds
+            of fields. Reject obvious non-record lines.
+            */
+
+            if(fields.length < 45){
+                return;
+            }
+
+            const horse =
+                getField(fields,45) ||
+                getField(fields,5);
+
+            if(!horse){
+                return;
+            }
+
+            const pp = extractPrimePower(fields);
+
+            const ppRaces = [];
+
+            /*
+            Ten previous performances.
+            */
+
+            for(let i=0;i<10;i++){
+
+                const date =
+                    getField(fields,256+i);
+
+                if(!date){
+                    continue;
+                }
+
+                ppRaces.push({
+
+                    date,
+
+                    track:
+                        getField(fields,276+i),
+
+                    raceNum:
+                        getField(fields,296+i),
+
+                    dist:
+                        getField(fields,316+i),
+
+                    surf:
+                        getField(fields,326+i),
+
+                    fin:
+                        getField(fields,616+i),
+
+                    speed:
+                        getNumber(fields,846+i),
+
+                    comment:
+                        getField(fields,396+i)
+
+                });
+
+            }
+
+
+            const ppWorks = [];
+
+            /*
+            Workout fields.
+            */
+
+            for(let i=0;i<12;i++){
+
+                const date =
+                    getField(fields,102+i);
+
+                if(!date || date === "0"){
+                    continue;
+                }
+
+                ppWorks.push({
+
+                    date:
+                        formatDate(date),
+
+                    time:
+                        getField(fields,114+i),
+
+                    track:
+                        getField(fields,126+i),
+
+                    description:
+                        getField(fields,162+i)
+
+                });
+
+            }
+
+
+            const trainer =
+                getField(fields,28);
+
+            const jockey =
+                getField(fields,33);
+
+            newRows.push(
+
+                newRow({
+
+                    race:
+                        getField(fields,3) || "1",
+
+                    post:
+                        getField(fields,4) || "1",
+
+                    horse,
+
+                    odds:
+                        getField(fields,44),
+
+                    trainer,
+
+                    trainerStarts:
+                        getNumber(fields,29),
+
+                    trainerWins:
+                        getNumber(fields,30),
+
+                    trainerPlaces:
+                        getNumber(fields,31),
+
+                    trainerShows:
+                        getNumber(fields,32),
+
+                    jockey,
+
+                    origJockey:
+                        jockey,
+
+                    jockeyStarts:
+                        getNumber(fields,35),
+
+                    jockeyWins:
+                        getNumber(fields,36),
+
+                    jockeyPlaces:
+                        getNumber(fields,37),
+
+                    jockeyShows:
+                        getNumber(fields,38),
+
+                    starts:
+                        getNumber(fields,97),
+
+                    wins:
+                        getNumber(fields,98),
+
+                    places:
+                        getNumber(fields,99),
+
+                    shows:
+                        getNumber(fields,100),
+
+                    lastSpeed:
+                        getNumber(fields,846),
+
+                    bestSpeed:
+                        getNumber(fields,101),
+
+                    primePower:
+                        pp,
+
+                    score:
+                        pp,
+
+                    ppRaces,
+
+                    ppWorks
+
+                })
+
+            );
+
+        });
+
+
+        if(!newRows.length){
+
+            throw new Error(
+                "No Brisnet runner records were recognized. " +
+                "Make sure this is the Brisnet single-data-file CSV/DRF export."
+            );
+
+        }
+
+        rows = newRows;
+
+        renderRows();
+
+        $("drfStatus").className =
+            "status ok";
+
+        $("drfStatus").textContent =
+            "Loaded " +
+            rows.length +
+            " runners successfully. " +
+            "Detected delimiter: " +
+            (
+                delimiter === "\t"
+                ? "TAB"
+                : delimiter
+            );
+
+
+    }catch(error){
+
+        $("drfStatus").className =
+            "status err";
+
+        $("drfStatus").textContent =
+            "DRF/CSV ERROR: " +
+            error.message;
+
+    }
+
+}
+
+
+/* ============================================================
+   DRF FILE INPUT
+============================================================ */
+
+$("drfInput").addEventListener("change",event=>{
+
+    const file =
+        event.target.files &&
+        event.target.files[0];
+
+    if(!file){
+        return;
+    }
+
+    const reader =
+        new FileReader();
+
+    reader.onload = event2=>{
+
+        loadDRF(event2.target.result);
+
+    };
+
+    reader.onerror = ()=>{
+
+        $("drfStatus").className =
+            "status err";
+
+        $("drfStatus").textContent =
+            "The browser could not read the selected file.";
+
+    };
+
+    /*
+    UTF-8 handles normal Bris files and BOM.
+    */
+
+    reader.readAsText(file,"UTF-8");
+
+});
+
+
+/* ============================================================
+   XML HELPERS
+============================================================ */
+
+function parseXML(raw){
+
+    const parser =
+        new DOMParser();
+
+    const doc =
+        parser.parseFromString(
+            raw,
+            "application/xml"
+        );
+
+    if(doc.querySelector("parsererror")){
+        return null;
+    }
+
+    return doc;
+
+}
+
+
+function extractFeedDate(doc){
+
+    const selectors = [
+        "pubDate",
+        "lastBuildDate",
+        "date",
+        "issueDate"
+    ];
+
+    for(const selector of selectors){
+
+        const element =
+            doc.querySelector(selector);
+
+        if(
+            element &&
+            element.textContent.trim()
+        ){
+
+            return element.textContent.trim();
+
+        }
+
+    }
+
+    return "Not specified";
+
+}
+
+
+/* ============================================================
+   SCRATCH / JOCKEY MATCHING
+============================================================ */
+
+function applyRSS(raw,fileName="Pasted Content"){
+
+    if(!raw || !raw.trim()){
+
+        $("rssStatus").className =
+            "status err";
+
+        $("rssStatus").textContent =
+            "XML ERROR: Input is empty.";
+
+        return;
+
+    }
+
+    const doc = parseXML(raw);
+
+    if(!doc){
+
+        $("rssStatus").className =
+            "status err";
+
+        $("rssStatus").textContent =
+            "XML ERROR: Invalid XML/RSS. " +
+            "Paste the actual XML source rather than an HTML webpage.";
+
+        return;
+
+    }
+
+
+    /*
+    Broad element support for different feeds.
+    */
+
+    const items = [
+        ...doc.querySelectorAll(
+            "item,entry,change,scratch,jockey_change"
+        )
+    ];
+
+
+    let scratchCount = 0;
+    let jockeyCount = 0;
+
+
+    rows.forEach(r=>{
+
+        if(!r.horse){
+            return;
+        }
+
+        const horseKey =
+            normalizeName(r.horse);
+
+
+        items.forEach(item=>{
+
+            const itemText =
+                item.textContent || "";
+
+            const normalizedText =
+                normalizeName(itemText);
+
+
+            /*
+            Horse name must actually occur.
+            */
+
+            if(
+                !normalizedText.includes(horseKey)
+            ){
+
+                return;
+
+            }
+
+
+            /*
+            SCRATCH
+            */
+
+            if(
+                /\bscratch(?:ed|ing)?\b/i.test(
+                    itemText
+                )
+            ){
+
+                if(!r.scratched){
+
+                    r.scratched = true;
+
+                    scratchCount++;
+
+                }
+
+            }
+
+
+            /*
+            JOCKEY / RIDER CHANGE
+            */
+
+            if(
+                /\b(jockey|rider)\b/i.test(
+                    itemText
+                )
+            ){
+
+                /*
+                Try several common feed phrasings.
+                */
+
+                const patterns = [
+
+                    /(?:jockey|rider)\s+(?:change[d]?\s+)?(?:to|:)?\s*([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/i,
+
+                    /(?:new\s+jockey|new\s+rider)\s*[:\-]?\s*([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/i,
+
+                    /(?:jockey|rider)\s*[:\-]\s*([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/i
+
+                ];
+
+
+                let newName = "";
+
+                for(const pattern of patterns){
+
+                    const match =
+                        itemText.match(pattern);
+
+                    if(match && match[1]){
+
+                        newName =
+                            match[1].trim();
+
+                        break;
+
+                    }
+
+                }
+
+
+                if(
+                    newName &&
+                    normalizeName(newName) !==
+                    normalizeName(r.jockey)
+                ){
+
+                    r.jockey =
+                        newName;
+
+                    r.jockeyChanged =
+                        true;
+
+                    jockeyCount++;
+
+                }
+
+            }
+
+        });
+
+    });
+
+
+    const feedDate =
+        extractFeedDate(doc);
+
+
+    $("rssFileName").textContent =
+        fileName;
+
+    $("rssFileDate").textContent =
+        feedDate;
+
+    $("rssItemCount").textContent =
+        items.length;
+
+    $("rssMetaBox")
+        .classList.add("show");
+
+
+    renderRows();
+
+
+    $("rssStatus").className =
+        "status ok";
+
+    $("rssStatus").textContent =
+        "Applied " +
+        scratchCount +
+        " scratch(es) and " +
+        jockeyCount +
+        " jockey change(s).";
+
+
+    /*
+    Recalculate automatically if a card already exists.
+    */
+
+    if(Object.keys(computedRaces).length){
+
+        computeRaceCard();
+
+    }
+
+}
+
+
+/* ============================================================
+   XML FILE INPUT
+============================================================ */
+
+$("rssInput").addEventListener("change",event=>{
+
+    const file =
+        event.target.files &&
+        event.target.files[0];
+
+    if(!file){
+        return;
+    }
+
+    const reader =
+        new FileReader();
+
+    reader.onload = e=>{
+
+        applyRSS(
+            e.target.result,
+            file.name
+        );
+
+    };
+
+    reader.onerror = ()=>{
+
+        $("rssStatus").className =
+            "status err";
+
+        $("rssStatus").textContent =
+            "The browser could not read the XML file.";
+
+    };
+
+    reader.readAsText(file,"UTF-8");
+
+});
+
+
+$("applyRssBtn").addEventListener("click",()=>{
+
+    applyRSS(
+        $("rssPaste").value,
+        "Pasted XML"
+    );
+
+});
+
+
+/* ============================================================
+   BETTING / MODEL HELPERS
+============================================================ */
+
+
+/*
+Fractional M/L -> decimal odds.
+*/
+
+function oddsDecimal(odds){
+
+    const match =
+        String(odds || "").match(
+            /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/
+        );
+
+    if(
+        !match ||
+        number(match[2]) <= 0
+    ){
+
+        return null;
+
+    }
+
+    return (
+        number(match[1]) /
+        number(match[2])
+    );
+
+}
+
+
+/*
+Recent finishing form.
+
+Higher score = better recent finishing.
+*/
+
+function recentFormScore(horse){
+
+    const lines =
+        (horse.ppRaces || [])
+        .slice(0,5);
+
+    const finishes =
+        lines
+        .map(p=>number(p.fin,99))
+        .filter(x=>x < 99);
+
+    if(!finishes.length){
+        return 0.5;
+    }
+
+    /*
+    Weighted toward most recent race.
+    */
+
+    let weighted = 0;
+    let weights = 0;
+
+    finishes.forEach((finish,index)=>{
+
+        const weight =
+            Math.max(
+                1,
+                5-index
+            );
+
+        weighted +=
+            Math.max(
+                0,
+                12-finish
+            ) *
+            weight;
+
+        weights += weight;
+
+    });
+
+    /*
+    Convert approximately to 0-1.
+    */
+
+    return Math.min(
+        1,
+        weighted /
+        (weights*10)
+    );
+
+}
+
+
+/*
+Career win percentage.
+*/
+
+function careerWinRate(horse){
+
+    if(number(horse.starts) <= 0){
+        return 0;
+    }
+
+    return Math.min(
+        1,
+        number(horse.wins) /
+        number(horse.starts)
+    );
+
+}
+
+
+/*
+Trainer win percentage.
+*/
+
+function trainerWinRate(horse){
+
+    if(number(horse.trainerStarts) <= 0){
+        return 0;
+    }
+
+    return Math.min(
+        1,
+        number(horse.trainerWins) /
+        number(horse.trainerStarts)
+    );
+
+}
+
+
+/*
+Jockey win percentage.
+*/
+
+function jockeyWinRate(horse){
+
+    if(number(horse.jockeyStarts) <= 0){
+        return 0;
+    }
+
+    return Math.min(
+        1,
+        number(horse.jockeyWins) /
+        number(horse.jockeyStarts)
+    );
+
+}
+
+
+/*
+Speed relative to today's field.
+*/
+
+function relativeSpeed(horse,field){
+
+    const speeds =
+        field
+        .map(x=>number(x.lastSpeed))
+        .filter(x=>x > 0);
+
+    if(
+        !speeds.length ||
+        !number(horse.lastSpeed)
+    ){
+
+        return 0.5;
+
+    }
+
+    const max =
+        Math.max(...speeds);
+
+    const min =
+        Math.min(...speeds);
+
+    if(max === min){
+        return 0.5;
+    }
+
+    return (
+        number(horse.lastSpeed)-min
+    ) /
+    (max-min);
+
+}
+
+
+/*
+Best speed relative to field.
+*/
+
+function relativeBestSpeed(horse,field){
+
+    const speeds =
+        field
+        .map(x=>number(x.bestSpeed))
+        .filter(x=>x > 0);
+
+    if(
+        !speeds.length ||
+        !number(horse.bestSpeed)
+    ){
+
+        return 0.5;
+
+    }
+
+    const max =
+        Math.max(...speeds);
+
+    const min =
+        Math.min(...speeds);
+
+    if(max === min){
+        return 0.5;
+    }
+
+    return (
+        number(horse.bestSpeed)-min
+    ) /
+    (max-min);
+
+}
+
+
+/*
+Prime Power relative ranking.
+
+This is deliberately normalized within today's field
+rather than treating a raw Prime Power number as the
+entire prediction.
+*/
+
+function relativePrimePower(horse,field){
+
+    const values =
+        field
+        .map(x=>number(x.score || x.primePower))
+        .filter(x=>x > 0);
+
+    const value =
+        number(horse.score || horse.primePower);
+
+    if(!values.length || !value){
+        return 0.5;
+    }
+
+    const max =
+        Math.max(...values);
+
+    const min =
+        Math.min(...values);
+
+    if(max === min){
+        return 0.5;
+    }
+
+    return (value-min)/(max-min);
+
+}
+
+
+/*
+Morning-line value.
+
+This is NOT allowed to overwhelm ability.
+It simply rewards a horse whose model probability
+is materially higher than the market's implied probability.
+*/
+
+function valueSignal(horse,modelProbability){
+
+    const odds =
+        oddsDecimal(horse.odds);
+
+    if(odds === null){
+        return 0;
+    }
+
+    const implied =
+        1/(odds+1);
+
+    return (
+        modelProbability-implied
+    );
+
+}
+
+
+/* ============================================================
+   HORSE MODEL
+============================================================ */
+
+function calculateHorseScore(horse,field){
+
+    const pp =
+        relativePrimePower(
+            horse,
+            field
+        );
+
+    const speed =
+        relativeSpeed(
+            horse,
+            field
+        );
+
+    const bestSpeed =
+        relativeBestSpeed(
+            horse,
+            field
+        );
+
+    const form =
+        recentFormScore(
+            horse
+        );
+
+    const career =
+        careerWinRate(
+            horse
+        );
+
+    const trainer =
+        trainerWinRate(
+            horse
+        );
+
+    const jockey =
+        jockeyWinRate(
+            horse
+        );
+
+
+    /*
+    IMPORTANT MODEL DESIGN
+
+    Prime Power:          32%
+    Current Speed:        22%
+    Recent Form:          14%
+    Best Speed:            8%
+    Career Win Rate:       6%
+    Trainer Win Rate:      6%
+    Jockey Win Rate:       5%
+    Relative strength:    4%
+    Rider-change penalty:  3%
+
+    This prevents Prime Power alone from
+    automatically becoming the winner.
+    */
+
+    let score =
+
+        pp * .32 +
+
+        speed * .22 +
+
+        form * .14 +
+
+        bestSpeed * .08 +
+
+        career * .06 +
+
+        trainer * .06 +
+
+        jockey * .05 +
+
+        ((pp+speed)/2) * .04;
+
+
+    /*
+    Rider change.
+
+    A rider change should not automatically kill a horse,
+    but an unknown/new rider gets a modest uncertainty penalty.
+    */
+
+    if(horse.jockeyChanged){
+
+        score -= .025;
+
+    }
+
+
+    /*
+    Clamp.
+    */
+
+    score =
+        Math.max(
+            .01,
+            Math.min(
+                .99,
+                score
+            )
+        );
+
+
+    return {
+
+        score,
+
+        components:{
+            pp,
+            speed,
+            form,
+            bestSpeed,
+            career,
+            trainer,
+            jockey
+        }
+
+    };
+
+}
+
+
+/* ============================================================
+   NORMALIZE SCORES INTO WIN PROBABILITIES
+============================================================ */
+
+function calculateProbabilities(field){
+
+    const scored =
+        field.map(horse=>{
+
+            const model =
+                calculateHorseScore(
+                    horse,
+                    field
+                );
+
+            return {
+
+                horse,
+
+                raw:model.score,
+
+                components:
+                    model.components
+
+            };
+
+        });
+
+
+    /*
+    Softmax-like transformation.
+
+    This creates relative race probabilities
+    instead of treating model score as an absolute
+    probability.
+    */
+
+    const exponentials =
+        scored.map(x=>
+            Math.exp(
+                x.raw * 5
+            )
+        );
+
+    const total =
+        exponentials.reduce(
+            (a,b)=>a+b,
+            0
+        );
+
+
+    scored.forEach((x,i)=>{
+
+        x.probability =
+            exponentials[i]/total;
+
+    });
+
+
+    return scored.sort(
+        (a,b)=>
+            b.probability -
+            a.probability
+    );
+
+}
+
+
+/* ============================================================
+   CONFIDENCE
+============================================================ */
+
+function getConfidence(top,second){
+
+    if(!top){
+        return {
+            score:0,
+            label:"NO BET",
+            className:"conf-caution"
+        };
+    }
+
+    const gap =
+        top.probability -
+        (second ? second.probability : 0);
+
+
+    let score =
+        50 +
+        gap*300;
+
+
+    /*
+    More separation = more confidence.
+    */
+
+    score =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                score
+            )
+        );
+
+
+    let label;
+    let className;
+
+
+    if(score >= 72){
+
+        label = "STRONG";
+        className = "conf-strong";
+
+    }else if(score >= 60){
+
+        label = "SOLID";
+        className = "conf-solid";
+
+    }else if(score >= 48){
+
+        label = "LEAN";
+        className = "conf-lean";
+
+    }else{
+
+        label = "CAUTION";
+        className = "conf-caution";
+
+    }
+
+
+    return {
+        score,
+        label,
+        className
+    };
+
+}
+
+
+/* ============================================================
+   EXPLANATION
+============================================================ */
+
+function buildReason(top,second,field){
+
+    const h =
+        top.horse;
+
+    const c =
+        top.components;
+
+    const reasons = [];
+
+
+    if(c.pp >= .80){
+
+        reasons.push(
+            "excellent Prime Power position"
+        );
+
+    }
+
+    if(c.speed >= .80){
+
+        reasons.push(
+            "top current-speed position"
+        );
+
+    }
+
+    if(c.form >= .70){
+
+        reasons.push(
+            "strong recent form"
+        );
+
+    }
+
+    if(c.bestSpeed >= .80){
+
+        reasons.push(
+            "strong best-speed figure"
+        );
+
+    }
+
+    if(c.career >= .20){
+
+        reasons.push(
+            "useful career win rate"
+        );
+
+    }
+
+    if(c.trainer >= .20){
+
+        reasons.push(
+            "productive trainer win rate"
+        );
+
+    }
+
+    if(c.jockey >= .20){
+
+        reasons.push(
+            "productive jockey win rate"
+        );
+
+    }
+
+
+    if(!reasons.length){
+
+        reasons.push(
+            "best overall composite model score"
+        );
+
+    }
+
+
+    let text =
+        reasons.join(", ");
+
+
+    if(second){
+
+        const gap =
+            (
+                top.probability -
+                second.probability
+            )*100;
+
+        text +=
+            `. Model separation from ` +
+            `#${second.horse.post} ` +
+            `${second.horse.horse}: ` +
+            `${gap.toFixed(1)} percentage points`;
+
+    }
+
+
+    return text;
+
+}
+
+
+/* ============================================================
+   COMPUTE RACE CARD
+============================================================ */
+
+function computeRaceCard(){
+
+    computedRaces = {};
+
+
+    rows.forEach(r=>{
+
+        if(!r.horse){
+            return;
+        }
+
+        const key =
+            r.race || "1";
+
+        if(!computedRaces[key]){
+            computedRaces[key] = [];
+        }
+
+        computedRaces[key].push(r);
+
+    });
+
+
+    const raceKeys =
+        Object.keys(computedRaces)
+        .sort(
+            (a,b)=>
+                number(a)-number(b)
+        );
+
+
+    let bestHTML = "";
+    let cardHTML = "";
+    let analysisHTML = "";
+
+
+    raceKeys.forEach(raceNum=>{
+
+        const fullField =
+            computedRaces[raceNum];
+
+        const activeField =
+            fullField.filter(
+                h=>!h.scratched
+            );
+
+
+        if(!activeField.length){
+
+            cardHTML += `
+
+            <div class="race-card">
+
+                <h3>
+                    Race ${safe(raceNum)}
+                </h3>
+
+                <div class="warning-box">
+                    All runners in this race are scratched.
+                </div>
+
+            </div>
+
+            `;
+
+            return;
+
+        }
+
+
+        const scored =
+            calculateProbabilities(
+                activeField
+            );
+
+
+        const top =
+            scored[0];
+
+        const second =
+            scored[1];
+
+
+        const confidence =
+            getConfidence(
+                top,
+                second
+            );
+
+
+        const topOdds =
+            oddsDecimal(
+                top.horse.odds
+            );
+
+
+        let value = null;
+
+        if(topOdds !== null){
+
+            const implied =
+                1/(topOdds+1);
+
+            value =
+                top.probability -
+                implied;
+
+        }
+
+
+        /*
+        Race-level warnings.
+        */
+
+        const closeRace =
+            second &&
+            (
+                top.probability -
+                second.probability
+            ) < .04;
+
+
+        const valueFlag =
+            value !== null &&
+            value > .04;
+
+
+        bestHTML += `
+
+        <div class="best-pick">
+
+            <div class="best-header">
+
+                <div>
+
+                    <div class="best-race">
+                        RACE ${safe(raceNum)}
+                    </div>
+
+                    <div class="best-horse">
+
+                        #${safe(top.horse.post)}
+                        ${safe(top.horse.horse)}
+
+                        <span class="badge">
+                            TOP PICK
+                        </span>
+
+                        <span class="badge">
+                            ${confidence.label}
+                        </span>
+
+                        ${
+                            top.horse.jockeyChanged
+                            ?
+                            '<span class="badge badge-red">NEW RIDER</span>'
+                            :
+                            ''
+                        }
+
+                        ${
+                            valueFlag
+                            ?
+                            '<span class="badge badge-green">VALUE</span>'
+                            :
+                            ''
+                        }
+
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    <div class="model-prob">
+                        ${(top.probability*100).toFixed(1)}%
+                    </div>
+
+                    <div class="confidence ${confidence.className}">
+                        CONFIDENCE ${confidence.score.toFixed(0)}/100
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="metric-line">
+
+                Prime Power:
+                <b>
+                    ${safe(
+                        top.horse.score ||
+                        top.horse.primePower ||
+                        "N/A"
+                    )}
+                </b>
+
+                &nbsp; | &nbsp;
+
+                Current Speed:
+                <b>
+                    ${safe(
+                        top.horse.lastSpeed ||
+                        "N/A"
+                    )}
+                </b>
+
+                &nbsp; | &nbsp;
+
+                M/L:
+                <b>
+                    ${safe(
+                        top.horse.odds ||
+                        "N/A"
+                    )}
+                </b>
+
+            </div>
+
+
+            <div class="metric-line">
+
+                Trainer:
+                <b>
+                    ${safe(
+                        top.horse.trainer ||
+                        "N/A"
+                    )}
+                </b>
+
+                &nbsp; | &nbsp;
+
+                Jockey:
+                <b>
+                    ${safe(
+                        top.horse.jockey ||
+                        "N/A"
+                    )}
+                </b>
+
+            </div>
+
+
+            <div class="reason-box">
+
+                <b>Why this is the top pick:</b>
+
+                ${safe(
+                    buildReason(
+                        top,
+                        second,
+                        activeField
+                    )
+                )}
+
+            </div>
+
+
+            ${
+                closeRace
+                ?
+                `
+                <div class="warning-box">
+
+                    ⚠️ <b>Close race.</b>
+                    The model gives the top horse less than
+                    4 percentage points of separation from
+                    the second choice. This is a lower-confidence
+                    Best Bet despite being the #1 selection.
+
+                </div>
+                `
+                :
+                ""
+            }
+
+
+            ${
+                valueFlag
+                ?
+                `
+                <div class="metric-line">
+
+                    <b>Potential value:</b>
+                    model probability is
+                    ${(top.probability*100).toFixed(1)}%
+                    versus approximately
+                    ${
+                        (
+                            1/(topOdds+1)*100
+                        ).toFixed(1)
+                    }%
+                    implied by the morning line.
+
+                </div>
+                `
+                :
+                ""
+            }
+
+        </div>
+
+        `;
+
+
+        /* ====================================================
+           FULL CARD
+        ==================================================== */
+
+        cardHTML += `
+
+        <div class="race-card">
+
+            <h3>
+                Race ${safe(raceNum)}
+                —
+                Full Field
+                (${fullField.length}
+                Total /
+                ${activeField.length}
+                Active)
+            </h3>
+
+            <div class="table-wrap">
+
+            <table class="compact-table">
+
+            <thead>
+
+            <tr>
+
+                <th>Rank</th>
+                <th>Post</th>
+                <th>Horse</th>
+                <th>Model Win %</th>
+                <th>Prime Power</th>
+                <th>Speed</th>
+                <th>M/L</th>
+                <th>Status</th>
+
+            </tr>
+
+            </thead>
+
+            <tbody>
+
+        `;
+
+
+        fullField.forEach(h=>{
+
+            const item =
+                scored.find(
+                    x=>x.horse.id === h.id
+                );
+
+
+            let status = "";
+
+            if(h.scratched){
+
+                status =
+                    '<span class="badge badge-red">SCRATCHED</span>';
+
+            }else if(
+                item &&
+                item === top
+            ){
+
+                status =
+                    '<span class="badge">BEST BET</span>';
+
+            }else if(
+                item &&
+                scored.indexOf(item) < 3
+            ){
+
+                status =
+                    '<span class="badge badge-blue">CONTENDER</span>';
+
+            }
+
+
+            cardHTML += `
+
+            <tr class="${
+                h.scratched
+                ?
+                "scratched-row"
+                :
+                ""
+            }">
+
+                <td>
+                    ${
+                        item
+                        ?
+                        scored.indexOf(item)+1
+                        :
+                        "-"
+                    }
+                </td>
+
+                <td>
+                    ${safe(h.post)}
+                </td>
+
+                <td>
+
+                    <span
+                        style="font-weight:700;cursor:pointer;text-decoration:underline dotted;"
+                        onclick="openPP(${h.id})">
+
+                        ${safe(h.horse)}
+
+                    </span>
+
+                    ${
+                        h.jockeyChanged
+                        ?
+                        '<span class="badge badge-red">NEW RIDER</span>'
+                        :
+                        ""
+                    }
+
+                </td>
+
+                <td>
+
+                    ${
+                        item
+                        ?
+                        (
+                            item.probability*100
+                        ).toFixed(1)+"%"
+                        :
+                        "-"
+                    }
+
+                </td>
+
+                <td>
+                    ${safe(
+                        h.score ||
+                        h.primePower ||
+                        "-"
+                    )}
+                </td>
+
+                <td>
+                    ${safe(
+                        h.lastSpeed ||
+                        "-"
+                    )}
+                </td>
+
+                <td>
+                    ${safe(
+                        h.odds ||
+                        "-"
+                    )}
+                </td>
+
+                <td>
+                    ${status}
+                </td>
+
+            </tr>
+
+            `;
+
+        });
+
+
+        cardHTML += `
+
+            </tbody>
+
+            </table>
+
+            </div>
+
+        </div>
+
+        `;
+
+
+        /* ====================================================
+           CONTENDERS / PRETENDERS
+        ==================================================== */
+
+        const contenders =
+            scored.filter(
+                (item,index)=>
+                    index < 3 ||
+                    item.probability >=
+                    top.probability*.72
+            );
+
+
+        const pretenders =
+            scored.filter(
+                item=>
+                    !contenders.includes(item)
+            );
+
+
+        analysisHTML += `
+
+        <div class="analysis-card">
+
+            <h3>
+                Race ${safe(raceNum)}
+                — Contenders vs Pretenders
+            </h3>
+
+            <div class="analysis-grid">
+
+                <div class="analysis-box contender">
+
+                    <h4>
+                        Contenders
+                        (${contenders.length})
+                    </h4>
+
+        `;
+
+
+        contenders.forEach(item=>{
+
+            analysisHTML += `
+
+            <div class="analysis-item">
+
+                <b>
+                    #${safe(item.horse.post)}
+                    ${safe(item.horse.horse)}
+                </b>
+
+                <br>
+
+                Model:
+                <b>
+                    ${(item.probability*100).toFixed(1)}%
+                </b>
+
+                &nbsp; |
+                PP:
+                <b>
+                    ${safe(
+                        item.horse.score ||
+                        item.horse.primePower ||
+                        "-"
+                    )}
+                </b>
+
+            </div>
+
+            `;
+
+        });
+
+
+        analysisHTML += `
+
+                </div>
+
+                <div class="analysis-box pretender">
+
+                    <h4>
+                        Pretenders / Weak
+                        (${pretenders.length})
+                    </h4>
+
+        `;
+
+
+        if(!pretenders.length){
+
+            analysisHTML += `
+
+                <div class="analysis-item">
+                    None — active field is relatively competitive.
+                </div>
+
+            `;
+
+        }else{
+
+            pretenders.forEach(item=>{
+
+                analysisHTML += `
+
+                <div class="analysis-item">
+
+                    <b>
+                        #${safe(item.horse.post)}
+                        ${safe(item.horse.horse)}
+                    </b>
+
+                    <br>
+
+                    Model:
+                    <b>
+                        ${(item.probability*100).toFixed(1)}%
+                    </b>
+
+                </div>
+
+                `;
+
+            });
+
+        }
+
+
+        analysisHTML += `
+
+                </div>
+
+            </div>
+
+        </div>
+
+        `;
+
+    });
+
+
+    $("bestSection").innerHTML = `
+
+        <div class="bestof">
+
+            <h3>
+                Best Bets — Improved Composite Engine
+            </h3>
+
+            <p style="
+                font-size:12px;
+                color:var(--ink-soft);
+                line-height:1.5;
+            ">
+
+                The top choice is no longer selected by Prime Power alone.
+                The engine combines ability, current speed, recent form,
+                best speed, career performance, trainer/jockey performance
+                and relative field strength. It also measures separation
+                from the second choice and identifies potential morning-line
+                value.
+
+            </p>
+
+            ${bestHTML}
+
+        </div>
+
+    `;
+
+
+    $("cardSection").innerHTML = `
+
+        <h2>
+            Full Race Cards
+        </h2>
+
+        ${cardHTML}
+
+    `;
+
+
+    $("analysisSection").innerHTML = `
+
+        <h2>
+            Contenders vs Pretenders
+        </h2>
+
+        ${analysisHTML}
+
+    `;
+
+
+    buildH2H();
+
+
+    $("tabbar").style.display =
+        "flex";
+
+
+    showTab("best");
+
+}
+
+
+/* ============================================================
+   TABS
+============================================================ */
+
+function showTab(tab){
+
+    $("cardSection").style.display =
+        tab === "card"
+        ?
+        "block"
+        :
+        "none";
+
+    $("bestSection").style.display =
+        tab === "best"
+        ?
+        "block"
+        :
+        "none";
+
+    $("analysisSection").style.display =
+        tab === "analysis"
+        ?
+        "block"
+        :
+        "none";
+
+    $("h2hSection").style.display =
+        tab === "h2h"
+        ?
+        "block"
+        :
+        "none";
+
+
+    document
+        .querySelectorAll(".tabbar button")
+        .forEach(button=>{
+
+            button.classList.toggle(
+                "on",
+                button.dataset.tab === tab
+            );
+
+        });
+
+}
+
+
+document
+    .querySelectorAll(".tabbar button")
+    .forEach(button=>{
+
+        button.addEventListener(
+            "click",
+            ()=>{
+                showTab(
+                    button.dataset.tab
+                );
+            }
+        );
+
+    });
+
+
+$("computeBtn").addEventListener(
+    "click",
+    computeRaceCard
+);
+
+
+/* ============================================================
+   H2H
+============================================================ */
+
+function buildH2H(){
+
+    const active =
+        rows.filter(
+            r=>r.horse && !r.scratched
+        );
+
+
+    let options = "";
+
+    active.forEach(r=>{
+
+        options += `
+
+        <option value="${r.id}">
+
+            R${safe(r.race)}
+            #
+            ${safe(r.post)}
+            ${safe(r.horse)}
+
+        </option>
+
+        `;
+
+    });
+
+
+    $("h2hSection").innerHTML = `
+
+        <h2>
+            Head-to-Head Analysis
+        </h2>
+
+        <div class="h2h-card">
+
+            <div class="h2h-select-grid">
+
+                <div>
+
+                    <label
+                        style="
+                        font:700 10px var(--mono);
+                        ">
+
+                        HORSE A
+
+                    </label>
+
+                    <select id="h2hA">
+                        ${options}
+                    </select>
+
+                </div>
+
+                <div>
+
+                    <label
+                        style="
+                        font:700 10px var(--mono);
+                        ">
+
+                        HORSE B
+
+                    </label>
+
+                    <select id="h2hB">
+                        ${options}
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div
+                class="h2h-comparison-grid"
+                id="h2hComparison">
+            </div>
+
+        </div>
+
+    `;
+
+
+    if(active.length > 1){
+
+        $("h2hB").value =
+            active[1].id;
+
+    }
+
+
+    $("h2hA").addEventListener(
+        "change",
+        renderH2H
+    );
+
+    $("h2hB").addEventListener(
+        "change",
+        renderH2H
+    );
+
+
+    renderH2H();
+
+}
+
+
+function renderH2H(){
+
+    const a =
+        rows.find(
+            r=>r.id ==
+            $("h2hA").value
+        );
+
+    const b =
+        rows.find(
+            r=>r.id ==
+            $("h2hB").value
+        );
+
+
+    $("h2hComparison").innerHTML =
+
+        renderH2HHorse(a) +
+        renderH2HHorse(b);
+
+}
+
+
+function renderH2HHorse(horse){
+
+    if(!horse){
+
+        return `
+            <div class="h2h-card">
+                Select a horse.
+            </div>
+        `;
+
+    }
+
+
+    return `
+
+    <div class="h2h-card">
+
+        <h3>
+            #${safe(horse.post)}
+            ${safe(horse.horse)}
+        </h3>
+
+        <div class="h2h-stat">
+
+            Prime Power:
+            <b>
+                ${safe(
+                    horse.score ||
+                    horse.primePower ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Current Speed:
+            <b>
+                ${safe(
+                    horse.lastSpeed ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Best Speed:
+            <b>
+                ${safe(
+                    horse.bestSpeed ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            M/L:
+            <b>
+                ${safe(
+                    horse.odds ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Career:
+            <b>
+                ${horse.starts || 0}
+                starts —
+                ${horse.wins || 0}W /
+                ${horse.places || 0}P /
+                ${horse.shows || 0}S
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Trainer:
+            <b>
+                ${safe(
+                    horse.trainer ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Jockey:
+            <b>
+                ${safe(
+                    horse.jockey ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div style="
+            margin-top:10px;
+            font-size:10px;
+            font-weight:800;
+            font-family:var(--mono);
+            text-transform:uppercase;
+        ">
+
+            Recent PP Lines
+
+        </div>
+
+        <table class="pp-table">
+
+        <thead>
+
+        <tr>
+
+            <th>Date</th>
+            <th>Track</th>
+            <th>Dist</th>
+            <th>Finish</th>
+            <th>Speed</th>
+
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        ${
+            (horse.ppRaces || [])
+            .slice(0,5)
+            .map(p=>`
+
+            <tr>
+
+                <td>
+                    ${safe(p.date)}
+                </td>
+
+                <td>
+                    ${safe(p.track)}
+                </td>
+
+                <td>
+                    ${safe(
+                        formatDistance(
+                            p.dist
+                        )
+                    )}
+                </td>
+
+                <td>
+                    ${safe(p.fin)}
+                </td>
+
+                <td>
+                    <b>
+                        ${safe(p.speed)}
+                    </b>
+                </td>
+
+            </tr>
+
+            `)
+            .join("")
+        }
+
+        </tbody>
+
+        </table>
+
+    </div>
+
+    `;
+
+}
+
+
+/* ============================================================
+   PP MODAL
+============================================================ */
+
+function openPP(id){
+
+    const horse =
+        rows.find(
+            r=>r.id == id
+        );
+
+    if(!horse){
+        return;
+    }
+
+
+    $("ppContent").innerHTML = `
+
+    <h2 style="
+        margin-right:30px;
+        font-size:20px;
+    ">
+
+        #${safe(horse.post)}
+        ${safe(horse.horse)}
+
+        ${
+            horse.scratched
+            ?
+            '<span class="badge badge-red">SCRATCHED</span>'
+            :
+            ""
+        }
+
+        ${
+            horse.jockeyChanged
+            ?
+            '<span class="badge badge-red">JOCKEY CHANGED</span>'
+            :
+            ""
+        }
+
+    </h2>
+
+
+    <div style="
+        font-family:var(--mono);
+        font-size:11px;
+        line-height:1.7;
+        margin-bottom:15px;
+    ">
+
+        Prime Power:
+        <b>
+            ${safe(
+                horse.score ||
+                horse.primePower ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Current Speed:
+        <b>
+            ${safe(
+                horse.lastSpeed ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Best Speed:
+        <b>
+            ${safe(
+                horse.bestSpeed ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Trainer:
+        <b>
+            ${safe(
+                horse.trainer ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Jockey:
+        <b>
+            ${safe(
+                horse.jockey ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Career:
+        <b>
+            ${horse.starts || 0}
+            Starts —
+            ${horse.wins || 0}W /
+            ${horse.places || 0}P /
+            ${horse.shows || 0}S
+        </b>
+
+    </div>
+
+
+    <div style="
+        font-weight:800;
+        font-size:11px;
+        text-transform:uppercase;
+        margin-bottom:6px;
+    ">
+
+        Past Performances
+
+    </div>
+
+
+    <div class="table-wrap">
+
+    <table class="pp-table">
+
+    <thead>
+
+    <tr>
+
+        <th>Date</th>
+        <th>Track</th>
+        <th>Race</th>
+        <th>Distance</th>
+        <th>Surface</th>
+        <th>Finish</th>
+        <th>Speed</th>
+        <th>Comment</th>
+
+    </tr>
+
+    </thead>
+
+    <tbody>
+
+    ${
+        (horse.ppRaces || [])
+        .map(p=>`
+
+        <tr>
+
+            <td>
+                ${safe(
+                    formatDate(p.date)
+                )}
+            </td>
+
+            <td>
+                ${safe(p.track)}
+            </td>
+
+            <td>
+                ${safe(p.raceNum)}
+            </td>
+
+            <td>
+                ${safe(
+                    formatDistance(
+                        p.dist
+                    )
+                )}
+            </td>
+
+            <td>
+                ${safe(p.surf)}
+            </td>
+
+            <td>
+                ${safe(p.fin)}
+            </td>
+
+            <td>
+                <b>
+                    ${safe(p.speed)}
+                </b>
+            </td>
+
+            <td>
+                ${safe(p.comment)}
+            </td>
+
+        </tr>
+
+        `)
+        .join("")
+    }
+
+    </tbody>
+
+    </table>
+
+    </div>
+
+
+    <div style="
+        margin-top:18px;
+        font-weight:800;
+        font-size:11px;
+        text-transform:uppercase;
+    ">
+
+        Recent Workouts
+
+    </div>
+
+
+    <div class="work-grid">
+
+    ${
+        (horse.ppWorks || [])
+        .map(w=>`
+
+        <div class="work-item">
+
+            <b>
+                ${safe(w.date)}
+            </b>
+
+            —
+            ${safe(w.track)}
+
+            <br>
+
+            Time:
+            <b>
+                ${safe(w.time || "N/A")}
+            </b>
+
+            ${
+                w.description
+                ?
+                " ("+
+                safe(w.description)+
+                ")"
+                :
+                ""
+            }
+
+        </div>
+
+        `)
+        .join("")
+    }
+
+    </div>
+
+    `;
+
+
+    $("ppOverlay")
+        .classList.add("show");
+
+}
+
+
+function closePP(){
+
+    $("ppOverlay")
+        .classList.remove("show");
+
+}
+
+
+$("ppCloseBtn")
+    .addEventListener(
+        "click",
+        closePP
+    );
+
+
+/*
+Close when tapping outside modal.
+*/
+
+$("ppOverlay")
+    .addEventListener(
+        "click",
+        event=>{
+
+            if(
+                event.target ===
+                $("ppOverlay")
+            ){
+
+                closePP();
+
+            }
+
+        }
+    );
+
+
+/* ============================================================
+   INITIALIZE
+============================================================ */
+
+renderRows();
+
+</script>
+
+</body>
+</html>
