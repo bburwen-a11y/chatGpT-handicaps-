@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Race Predictor — Improved Best Bets Engine</title>
+<title>Horse Race Predictor Pro — iPhone / Safari</title>
 
 <style>
 :root{
@@ -653,9 +653,7 @@ tbody input:focus{
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
 <h1>Horse Race Predictor</h1>
 <p class="tagline">
-Improved Best Bets using Prime Power, current speed, recent form,
-class signals, trainer/jockey performance, relative strength,
-morning-line value and race-confidence separation.
+Professional win-ranking engine using Brisnet Prime Power, speed, recent form, trainer/jockey stats, field-relative strength, value and confidence separation. Built to read Brisnet DRF/CSV/TXT files directly on iPhone/Safari.
 </p>
 </header>
 
@@ -679,18 +677,17 @@ Load Race Data & Scratches / Rider Changes
 <h3>Brisnet .DRF Single File</h3>
 
 <p>
-Reads the Brisnet single-file layout and attempts to handle
-CSV, DRF, TXT, BOM, CRLF/LF and common delimiter variations.
+Reads the Brisnet single-file layout and handles DRF/CSV/TXT content, BOM, CRLF/LF and common delimiters. The picker intentionally accepts any file type so iPhone Files does not hide .DRF files.
 </p>
 
 <label class="file-btn" for="drfInput">
-Select .DRF / .CSV
+Select Brisnet file
 </label>
 
 <input
 type="file"
 id="drfInput"
-accept=".drf,.csv,.txt,.data,text/csv,text/plain"
+
 >
 
 <div id="drfStatus" class="status"></div>
@@ -703,9 +700,7 @@ accept=".drf,.csv,.txt,.data,text/csv,text/plain"
 <h3>Equibase RSS / XML Feed</h3>
 
 <p>
-Upload the XML/RSS file or paste its XML contents.
-Scratch and rider matching is normalized to reduce
-name-format failures.
+Upload the XML/RSS file or paste its XML contents. The picker accepts any file type so iPhone Files does not hide .RSS/.XML files. Scratch and rider matching is normalized to reduce name-format failures.
 </p>
 
 <label class="file-btn" for="rssInput">
@@ -715,7 +710,7 @@ Select XML / RSS
 <input
 type="file"
 id="rssInput"
-accept=".xml,.rss,.txt,application/xml,text/xml"
+
 >
 
 <textarea
@@ -1361,6 +1356,27 @@ function formatDistance(value){
 
 
 /* ============================================================
+   FILE TEXT READER — iPhone/Safari friendly
+   We do not trust filename extension or MIME type.
+============================================================ */
+function readTextFile(file, onLoad, onError){
+    const reader = new FileReader();
+    reader.onload = e => {
+        let text = String(e.target.result || "");
+        text = text.replace(/^\uFEFF/, "");
+        onLoad(text);
+    };
+    reader.onerror = () => onError(new Error("The browser could not read the selected file."));
+    reader.readAsText(file, "UTF-8");
+}
+
+function describeFile(file){
+    const name = file && file.name ? file.name : "selected file";
+    const size = file && Number.isFinite(file.size) ? file.size : 0;
+    return name + (size ? " · " + Math.round(size/1024) + " KB" : "");
+}
+
+/* ============================================================
    LOAD BRIS FILE
 ============================================================ */
 
@@ -1627,40 +1643,21 @@ function loadDRF(text){
 ============================================================ */
 
 $("drfInput").addEventListener("change",event=>{
+    const file = event.target.files && event.target.files[0];
+    if(!file) return;
 
-    const file =
-        event.target.files &&
-        event.target.files[0];
+    $("drfStatus").className = "status";
+    $("drfStatus").textContent = "Reading " + describeFile(file) + "…";
 
-    if(!file){
-        return;
-    }
-
-    const reader =
-        new FileReader();
-
-    reader.onload = event2=>{
-
-        loadDRF(event2.target.result);
-
-    };
-
-    reader.onerror = ()=>{
-
-        $("drfStatus").className =
-            "status err";
-
-        $("drfStatus").textContent =
-            "The browser could not read the selected file.";
-
-    };
-
-    /*
-    UTF-8 handles normal Bris files and BOM.
-    */
-
-    reader.readAsText(file,"UTF-8");
-
+    readTextFile(file, text => {
+        loadDRF(text);
+        if(rows.length){
+            $("drfStatus").textContent += " File type detected from content; extension was not required.";
+        }
+    }, err => {
+        $("drfStatus").className = "status err";
+        $("drfStatus").textContent = "FILE ERROR: " + err.message;
+    });
 });
 
 
@@ -1936,39 +1933,18 @@ function applyRSS(raw,fileName="Pasted Content"){
 ============================================================ */
 
 $("rssInput").addEventListener("change",event=>{
+    const file = event.target.files && event.target.files[0];
+    if(!file) return;
 
-    const file =
-        event.target.files &&
-        event.target.files[0];
+    $("rssStatus").className = "status";
+    $("rssStatus").textContent = "Reading " + describeFile(file) + "…";
 
-    if(!file){
-        return;
-    }
-
-    const reader =
-        new FileReader();
-
-    reader.onload = e=>{
-
-        applyRSS(
-            e.target.result,
-            file.name
-        );
-
-    };
-
-    reader.onerror = ()=>{
-
-        $("rssStatus").className =
-            "status err";
-
-        $("rssStatus").textContent =
-            "The browser could not read the XML file.";
-
-    };
-
-    reader.readAsText(file,"UTF-8");
-
+    readTextFile(file, text => {
+        applyRSS(text, file.name || "Selected XML/RSS");
+    }, err => {
+        $("rssStatus").className = "status err";
+        $("rssStatus").textContent = "FILE ERROR: " + err.message;
+    });
 });
 
 
@@ -1992,26 +1968,29 @@ Fractional M/L -> decimal odds.
 */
 
 function oddsDecimal(odds){
+    const raw = String(odds || "").trim().toLowerCase();
+    if(!raw) return null;
 
-    const match =
-        String(odds || "").match(
-            /(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/
-        );
+    // Fractional: 5/2, 5-2, 5 to 2
+    let m = raw.match(/^(\d+(?:\.\d+)?)\s*(?:\/|-|to)\s*(\d+(?:\.\d+)?)$/);
+    if(m && number(m[2]) > 0) return number(m[1]) / number(m[2]);
 
-    if(
-        !match ||
-        number(match[2]) <= 0
-    ){
-
-        return null;
-
+    // Decimal odds (e.g. 3.50)
+    m = raw.match(/^(\d+(?:\.\d+)?)$/);
+    if(m){
+        const v = number(m[1]);
+        if(v >= 1.01) return v - 1;
     }
 
-    return (
-        number(match[1]) /
-        number(match[2])
-    );
+    // American odds: +250 / -120
+    m = raw.match(/^([+-]\d+(?:\.\d+)?)$/);
+    if(m){
+        const a = number(m[1]);
+        if(a > 0) return a/100;
+        if(a < 0) return 100/Math.abs(a);
+    }
 
+    return null;
 }
 
 
@@ -4057,5 +4036,6 @@ renderRows();
 
 </script>
 
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Race Predictor Pro · iPhone/Safari build 2026-09-01</div>
 </body>
 </html>
