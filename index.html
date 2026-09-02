@@ -1,9 +1,9 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.1 — iPhone / Safari</title>
+<title>Horse Handicap v5.2 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -685,7 +685,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.1</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.2</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -869,7 +869,7 @@ Full Race Cards
 </button>
 
 <button data-tab="best">
-Best Bets
+Decision Board
 </button>
 
 <button data-tab="analysis">
@@ -936,6 +936,7 @@ id="ppCloseBtn">
 let rows = [];
 let rowId = 1;
 let computedRaces = {};
+let trackConditions = {};
 let probabilityDetails = {};
 
 
@@ -1039,6 +1040,7 @@ function newRow(partial = {}){
         speedPoints:0,
         currentTrack:"",
         currentSurface:"",
+        currentTrackCondition:"",
         currentDistance:0,
         raceType:"",
         purse:0,
@@ -1620,6 +1622,7 @@ function loadDRF(text){
                     date,
                     track:getField(fields,276+i),
                     raceNum:getField(fields,296+i),
+                    trackCondition:getField(fields,306+i),
                     dist:getNumber(fields,316+i),
                     surf:getField(fields,326+i),
                     fin:getField(fields,616+i),
@@ -1679,6 +1682,7 @@ function loadDRF(text){
 
                 currentTrack:getField(fields,1),
                 currentSurface:getField(fields,7),
+                currentTrackCondition:"",
                 currentDistance:getNumber(fields,6),
                 raceType:getField(fields,9),
                 purse:getNumber(fields,12),
@@ -1880,12 +1884,34 @@ function applyRSS(raw,fileName="Pasted Content"){
         )
     ];
 
+    /* Capture late dirt/turf condition changes by race. */
+    trackConditions = {};
+    items.forEach(item=>{
+        const itemText=item.textContent || "";
+        const matches=itemText.matchAll(
+            /Race\s+0?(\d+):\s*Current\s+(?:Dirt|Turf)\s+Track\s+Condition\s*-\s*([^<\r\n]+)/gi
+        );
+        for(const match of matches){
+            const tail=match[2];
+            const changed=tail.match(/changed\s+to\s+([A-Za-z]+)/i);
+            const direct=tail.match(/([A-Za-z]+)\s*$/);
+            const condition=changed ? changed[1] : direct ? direct[1] : "";
+            if(condition){
+                trackConditions[String(number(match[1]))]=condition;
+            }
+        }
+    });
+
 
     let scratchCount = 0;
     let jockeyCount = 0;
 
 
     rows.forEach(r=>{
+
+        r.currentTrackCondition =
+            trackConditions[String(number(r.race))] ||
+            r.currentTrackCondition || "";
 
         if(!r.horse){
             return;
@@ -2097,11 +2123,11 @@ function oddsDecimal(odds){
     let m = raw.match(/^(\d+(?:\.\d+)?)\s*(?:\/|-|to)\s*(\d+(?:\.\d+)?)$/);
     if(m && number(m[2]) > 0) return number(m[1]) / number(m[2]);
 
-    // Decimal odds (e.g. 3.50)
+    // BRIS numeric M/L is net fractional odds: 4.00 means 4-1.
     m = raw.match(/^(\d+(?:\.\d+)?)$/);
     if(m){
         const v = number(m[1]);
-        if(v >= 1.01) return v - 1;
+        if(v > 0) return v;
     }
 
     // American odds: +250 / -120
@@ -2454,6 +2480,27 @@ function surfaceSpeedScore(horse){
     return avg(vals);
 }
 
+function conditionGroup(value){
+    const s=String(value||"").trim().toUpperCase();
+    if(["FT","FST","FAST"].includes(s)) return "FAST";
+    if(["MY","MUDDY","SY","SL","SLOPPY"].includes(s)) return "OFF";
+    if(["YL","YLD","YIELDING","SF","SOFT"].includes(s)) return "SOFT";
+    if(["FM","FIRM"].includes(s)) return "FIRM";
+    if(["GD","GOOD"].includes(s)) return "GOOD";
+    return s;
+}
+
+function conditionSpeedScore(horse){
+    const target=conditionGroup(horse.currentTrackCondition);
+    if(!target) return 0;
+    const vals=(horse.ppRaces||[])
+        .filter(r=>conditionGroup(r.trackCondition)===target)
+        .slice(0,5)
+        .map(r=>number(r.speed))
+        .filter(v=>v>0);
+    return avg(vals);
+}
+
 function dataQuality(horse){
     const core=[
         number(horse.primePower)>0,
@@ -2467,6 +2514,22 @@ function dataQuality(horse){
     const ratio=present/core.length;
     const label=ratio>=.84 ? "COMPLETE" : ratio>=.5 ? "PARTIAL" : "POOR";
     return {present,total:core.length,ratio,label};
+}
+
+function raceDecision(top,field){
+    const horse=top.horse;
+    const reasons=[];
+    const firstTimers=field.filter(h=>number(h.starts)===0).length;
+    const firstTimerRate=field.length ? firstTimers/field.length : 0;
+
+    if(number(horse.currentDistance)>3000) reasons.push("specialty or jump-distance race");
+    if(top.components.quality.label==="POOR") reasons.push("poor core-data coverage");
+    if(firstTimerRate>=.25) reasons.push("many first-time starters");
+    if(horse.currentTrackCondition && conditionSpeedScore(horse)===0){
+        reasons.push("no matching speed figure for today's track condition");
+    }
+
+    return {pass:reasons.length>0,reasons,firstTimers,firstTimerRate};
 }
 
 function classDropStatus(horse){
@@ -2606,6 +2669,11 @@ function calculateHorseScore(horse,field){
         field.map(surfaceSpeedScore)
     );
 
+    const conditionFit=percentileRank(
+        conditionSpeedScore(horse),
+        field.map(conditionSpeedScore)
+    );
+
     let score =
         pp*.20 +
         currentSpeed*.10 +
@@ -2614,7 +2682,8 @@ function calculateHorseScore(horse,field){
         form*.12 +
         pace*.08 +
         cls*.10 +
-        surfaceFit*.06 +
+        surfaceFit*.04 +
+        conditionFit*.04 +
         career*.04 +
         trainer*.035 +
         jockey*.035 +
@@ -2656,7 +2725,7 @@ function calculateHorseScore(horse,field){
         score,
         components:{
             pp,currentSpeed,recentSpeed,bestSpeed,form,
-            pace,cls,surfaceFit,career,trainer,jockey,combo,workouts,quality
+            pace,cls,surfaceFit,conditionFit,career,trainer,jockey,combo,workouts,quality
         }
     };
 }
@@ -2771,6 +2840,8 @@ function openProbability(raceNum){
       <div class="model-prob" style="margin:8px 0;">${(d.probability*100).toFixed(1)}%</div>
       <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
       <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
+      <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
+      ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
       <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Backtesting showed that higher v5.0 percentages did not produce a comparable increase in win rate. Use it for ranking, not as a betting edge or fair odds.</div>
     `;
     $("probOverlay").classList.add("show");
@@ -2977,25 +3048,14 @@ function computeRaceCard(){
 
         const quality=top.components.quality;
 
-
-        const topOdds =
-            oddsDecimal(
-                top.horse.odds
-            );
+        const decision=raceDecision(top,activeField);
 
 
-        let value = null;
-
-        if(topOdds !== null){
-
-            const implied =
-                1/(topOdds+1);
-
-            value =
-                top.probability -
-                implied;
-
-        }
+        const marketOrder=activeField
+            .filter(h=>oddsDecimal(h.odds)!==null)
+            .sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+        const marketIndex=marketOrder.findIndex(h=>h.id===top.horse.id);
+        const marketRank=marketIndex>=0 ? marketIndex+1 : null;
 
 
         /*
@@ -3010,15 +3070,18 @@ function computeRaceCard(){
             ) < .04;
 
 
-        const priceCheck = value !== null && value > .04 && quality.label!=="POOR";
-        const passFlag = quality.label==="POOR" || value===null || value<=0;
+        const priceCheck = !decision.pass && marketRank!==null && marketRank>=3 && quality.label==="COMPLETE";
+        const passFlag = decision.pass;
 
         probabilityDetails[String(raceNum)]={
             horse:top.horse.horse,
             probability:top.probability,
             rank:1,
             fieldSize:scored.length,
-            quality
+            quality,
+            pass:passFlag,
+            decision,
+            marketRank
         };
 
 
@@ -3044,7 +3107,7 @@ function computeRaceCard(){
                         </span>
 
                         <span class="badge">
-                            ${passFlag ? "PASS" : "TOP RATED"}
+                            ${passFlag ? "PASS" : "CONTENDER REVIEW"}
                         </span>
 
                         ${
@@ -3058,7 +3121,7 @@ function computeRaceCard(){
                         ${
                             priceCheck
                             ?
-                            '<span class="badge badge-blue">PRICE CHECK</span>'
+                            '<span class="badge badge-blue">PRICE CANDIDATE</span>'
                             :
                             ''
                         }
@@ -3141,6 +3204,12 @@ function computeRaceCard(){
 
             </div>
 
+            <div class="metric-line">
+                Track condition: <b>${safe(top.horse.currentTrackCondition || "Not supplied")}</b>
+                &nbsp; | &nbsp;
+                Morning-line rank: <b>${marketRank || "N/A"}</b>
+            </div>
+
 
             <div class="reason-box">
 
@@ -3156,6 +3225,12 @@ function computeRaceCard(){
 
             </div>
 
+            ${
+                passFlag
+                ? `<div class="warning-box"><b>PASS this race:</b> ${safe(decision.reasons.join("; "))}. The horse remains the model's top-ranked contender, but this is not a wager recommendation.</div>`
+                : ""
+            }
+
 
             ${
                 closeRace
@@ -3166,8 +3241,8 @@ function computeRaceCard(){
                     ⚠️ <b>Close race.</b>
                     The model gives the top horse less than
                     4 percentage points of separation from
-                    the second choice. This is a lower-confidence
-                    Best Bet despite being the #1 selection.
+                    the second choice. Review the leading contenders;
+                    the #1 rating is not a stand-alone betting signal.
 
                 </div>
                 `
@@ -3182,16 +3257,9 @@ function computeRaceCard(){
                 `
                 <div class="metric-line">
 
-                    <b>Price check only:</b>
-                    uncalibrated model share is
-                    ${(top.probability*100).toFixed(1)}%
-                    versus approximately
-                    ${
-                        (
-                            1/(topOdds+1)*100
-                        ).toFixed(1)
-                    }%
-                    implied by the morning line.
+                    <b>Price candidate:</b>
+                    model rank #1 versus morning-line rank #${marketRank}.
+                    This is a review flag, not a proven wagering edge.
 
                 </div>
                 `
@@ -3233,7 +3301,7 @@ function computeRaceCard(){
                 <th>Rank</th>
                 <th>Post</th>
                 <th>Horse</th>
-                <th>Model Win %</th>
+                <th>Model Share</th>
                 <th>Prime Power</th>
                 <th>Speed</th>
                 <th>M/L</th>
@@ -3269,7 +3337,7 @@ function computeRaceCard(){
             ){
 
                 status =
-                    '<span class="badge">BEST BET</span>';
+                    '<span class="badge">TOP RATED</span>';
 
             }else if(
                 item &&
@@ -3540,7 +3608,7 @@ function computeRaceCard(){
         <div class="bestof">
 
             <h3>
-                Top Rated — Model & Price Review
+                Race Decision Board
             </h3>
 
             <p style="
@@ -3551,8 +3619,11 @@ function computeRaceCard(){
 
                 The percentage is an uncalibrated relative model share, not a
                 proven win probability. Tap it for the horse's data quality and
-                interpretation. PASS means the available evidence or price does
-                not support calling the selection a wager.
+                interpretation. PASS is automatic for specialty/jump-distance
+                races, poor core-data coverage, fields with many first-time
+                starters, or a changed track condition with no matching speed
+                evidence. PRICE CANDIDATE means model rank #1 is morning-line
+                rank #3 or higher; it is a review flag, not a proven edge.
 
             </p>
 
@@ -4306,6 +4377,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.1 · iPhone/Safari build 2026-09-02</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.2 · iPhone/Safari build 2026-09-02</div>
 </body>
 </html>
