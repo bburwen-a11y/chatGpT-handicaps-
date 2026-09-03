@@ -1,9 +1,9 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.5 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v5.6 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -692,7 +692,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.5</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.6</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -1677,6 +1677,9 @@ function loadDRF(text){
                     surf:getField(fields,326+i),
                     entrants:getNumber(fields,346+i),
                     post:getField(fields,356+i),
+                    winnerName:getField(fields,406+i),
+                    placeName:getField(fields,416+i),
+                    showName:getField(fields,426+i),
                     fin:getField(fields,616+i),
                     speed:getNumber(fields,846+i),
                     pace2:getNumber(fields,766+i),
@@ -4453,6 +4456,36 @@ function renderH2HHorse(horse){
 }
 
 
+
+function normalizeHorseNameForMatch(value){
+
+    return String(value || "")
+        .toUpperCase()
+        .replace(/\([^)]*\)/g,"")
+        .replace(/[^A-Z0-9]/g,"")
+        .trim();
+
+}
+
+
+function ppFinishNameHTML(name,todayNames){
+
+    const raw=String(name || "").trim();
+
+    if(!raw){
+        return "—";
+    }
+
+    const key=normalizeHorseNameForMatch(raw);
+    const isToday=todayNames.has(key);
+
+    return isToday
+        ? `<b>${safe(raw)}</b>`
+        : safe(raw);
+
+}
+
+
 /* ============================================================
    PP MODAL
 ============================================================ */
@@ -4467,6 +4500,20 @@ function openPP(id){
     if(!horse){
         return;
     }
+
+    /*
+    Bold W/P/S horses from prior races when that horse is also
+    entered in this same race today.
+    */
+    const todayNames=new Set(
+        rows
+            .filter(r=>
+                r.horse &&
+                String(r.race)===String(horse.race)
+            )
+            .map(r=>normalizeHorseNameForMatch(r.horse))
+            .filter(Boolean)
+    );
 
 
     $("ppContent").innerHTML = `
@@ -4595,6 +4642,9 @@ function openPP(id){
         <th>Surface</th>
         <th>Finish</th>
         <th>Speed</th>
+        <th>Winner</th>
+        <th>Place</th>
+        <th>Show</th>
         <th>Comment</th>
 
     </tr>
@@ -4643,6 +4693,18 @@ function openPP(id){
                 <b>
                     ${safe(p.speed)}
                 </b>
+            </td>
+
+            <td>
+                ${ppFinishNameHTML(p.winnerName,todayNames)}
+            </td>
+
+            <td>
+                ${ppFinishNameHTML(p.placeName,todayNames)}
+            </td>
+
+            <td>
+                ${ppFinishNameHTML(p.showName,todayNames)}
             </td>
 
             <td>
@@ -4768,6 +4830,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.5 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.6 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
