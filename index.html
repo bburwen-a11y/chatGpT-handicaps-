@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.3 — iPhone / Safari</title>
+<title>Horse Handicap v5.4 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -692,7 +692,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.3</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.4</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -895,8 +895,6 @@ Head-to-Head
 <section id="bestSection" style="display:none;"></section>
 
 <section id="analysisSection" style="display:none;"></section>
-
-<section id="h2hSection" style="display:none;"></section>
 
 </main>
 
@@ -3653,7 +3651,9 @@ function computeRaceCard(){
 
         analysisHTML += `
 
-                </div>
+                
+                ${renderInlineRaceH2H(field)}
+</div>
 
             </div>
 
@@ -4065,92 +4065,7 @@ function renderH2HGroup(group){
 
 
 function buildH2H(){
-
-    const active =
-        rows.filter(
-            r=>r.horse && !r.scratched
-        );
-
-
-    const races =
-        [...new Set(
-            active.map(r=>String(r.race))
-        )]
-        .sort((a,b)=>Number(a)-Number(b));
-
-
-    let raceOptions = "";
-
-    races.forEach(race=>{
-
-        const count =
-            active.filter(
-                h=>String(h.race) === String(race)
-            ).length;
-
-        raceOptions += `
-
-            <option value="${safe(race)}">
-                Race ${safe(race)} — ${count} runners
-            </option>
-
-        `;
-
-    });
-
-
-    $("h2hSection").innerHTML = `
-
-        <h2>
-            Head-to-Head — Previous Direct Meetings
-        </h2>
-
-        <div class="h2h-card">
-
-            <label style="
-                font:700 10px var(--mono);
-                display:block;
-                margin-bottom:5px;
-            ">
-                CURRENT RACE
-            </label>
-
-            <select
-                id="h2hRace"
-                style="width:100%;margin-bottom:12px;"
-            >
-                ${raceOptions}
-            </select>
-
-            <div id="h2hComparison"></div>
-
-        </div>
-
-    `;
-
-
-    if(races.length){
-
-        $("h2hRace").value =
-            races[0];
-
-        $("h2hRace").addEventListener(
-            "change",
-            renderH2H
-        );
-
-        renderH2H();
-
-    }else{
-
-        $("h2hComparison").innerHTML = `
-            <div class="h2h-stat">
-                No active runners loaded.
-            </div>
-        `;
-
-    }
-
+    // H2H is rendered inline in Contenders/Pretenders.
 }
 
 
@@ -4220,6 +4135,46 @@ function renderH2H(){
             .join("")
         }
 
+    `;
+
+}
+
+
+
+function renderInlineRaceH2H(field){
+
+    const groups = currentRaceH2HGroups(field);
+
+    if(!groups.length){
+        return "";
+    }
+
+    return `
+        <div style="
+            grid-column:1/-1;
+            margin-top:12px;
+        ">
+            <div class="h2h-card">
+                <h3>
+                    Previous Direct Meetings
+                </h3>
+
+                <div class="h2h-stat" style="margin-bottom:8px;">
+                    <b>
+                        ${groups.length}
+                        prior direct
+                        ${groups.length === 1 ? "meeting" : "meetings"}
+                        found among these contenders.
+                    </b>
+                </div>
+
+                ${
+                    groups
+                    .map(renderH2HGroup)
+                    .join("")
+                }
+            </div>
+        </div>
     `;
 
 }
@@ -4728,6 +4683,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.3 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.4 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
