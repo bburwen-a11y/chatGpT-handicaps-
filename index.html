@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.4 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v5.4.1 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -692,7 +692,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.4</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.4.1</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -881,10 +881,6 @@ Decision Board
 
 <button data-tab="analysis">
 Contenders / Pretenders
-</button>
-
-<button data-tab="h2h">
-Head-to-Head
 </button>
 
 </div>
@@ -3651,11 +3647,11 @@ function computeRaceCard(){
 
         analysisHTML += `
 
-                
-                ${renderInlineRaceH2H(field)}
-</div>
+                </div>
 
             </div>
+
+            ${renderInlineRaceH2H(activeField)}
 
         </div>
 
@@ -3755,14 +3751,6 @@ function showTab(tab){
         "block"
         :
         "none";
-
-    $("h2hSection").style.display =
-        tab === "h2h"
-        ?
-        "block"
-        :
-        "none";
-
 
     document
         .querySelectorAll(".tabbar button")
@@ -4065,7 +4053,7 @@ function renderH2HGroup(group){
 
 
 function buildH2H(){
-    // H2H is rendered inline in Contenders/Pretenders.
+    // H2H now renders inline inside Contenders / Pretenders.
 }
 
 
@@ -4141,42 +4129,34 @@ function renderH2H(){
 
 
 
-function renderInlineRaceH2H(field){
+function renderInlineRaceH2H(activeField){
 
-    const groups = currentRaceH2HGroups(field);
+    const groups = currentRaceH2HGroups(activeField);
 
     if(!groups.length){
         return "";
     }
 
     return `
-        <div style="
-            grid-column:1/-1;
-            margin-top:12px;
-        ">
+        <div style="grid-column:1/-1;margin-top:12px;">
             <div class="h2h-card">
-                <h3>
-                    Previous Direct Meetings
-                </h3>
+
+                <h3>Previous Direct Meetings</h3>
 
                 <div class="h2h-stat" style="margin-bottom:8px;">
                     <b>
                         ${groups.length}
                         prior direct
                         ${groups.length === 1 ? "meeting" : "meetings"}
-                        found among these contenders.
+                        found among today's runners.
                     </b>
                 </div>
 
-                ${
-                    groups
-                    .map(renderH2HGroup)
-                    .join("")
-                }
+                ${groups.map(renderH2HGroup).join("")}
+
             </div>
         </div>
     `;
-
 }
 
 
@@ -4683,6 +4663,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.4 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.4.1 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
