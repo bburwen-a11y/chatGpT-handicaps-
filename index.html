@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.2 — iPhone / Safari</title>
+<title>Horse Handicap v5.3 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -151,7 +151,14 @@ h2::after{
 }
 
 input[type=file]{
-  display:none;
+  display:block;
+  width:100%;
+  margin-top:10px;
+  padding:8px;
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  background:#fff;
+  font-size:12px;
 }
 
 .status{
@@ -685,7 +692,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.2</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.3</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -723,7 +730,7 @@ Select Brisnet file
 <input
 type="file"
 id="drfInput"
-
+accept=".drf,.csv,.txt,.zip,text/csv,text/plain,application/zip"
 >
 
 <div id="drfStatus" class="status"></div>
@@ -738,7 +745,7 @@ id="drfInput"
 
 <div class="warning-box" style="margin-top:8px;">
   BRIS Single File is a comma-delimited data file. If you select a ZIP,
-  this build attempts to unzip a single contained data file automatically.
+  this build reads normal files plus multi-entry ZIPs and ZIP data descriptors.
   If Safari reports an unsupported ZIP compression method, extract the
   .DRF/.CSV file in Files first.
 </div>
@@ -1468,19 +1475,55 @@ async function inflateRaw(bytes){
 
 async function extractZipSingleFile(bytes){
     const dv = new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-    const sig = dv.getUint32(0,true);
-    if(sig !== 0x04034b50){
+    if(bytes.length<30 || dv.getUint32(0,true) !== 0x04034b50){
         throw new Error("ZIP file was not recognized.");
     }
 
-    const method = dv.getUint16(8,true);
-    const compressedSize = dv.getUint32(18,true);
-    const fileNameLen = dv.getUint16(26,true);
-    const extraLen = dv.getUint16(28,true);
-    const nameBytes = bytes.slice(30,30+fileNameLen);
-    const name = new TextDecoder("utf-8").decode(nameBytes);
-    const dataStart = 30 + fileNameLen + extraLen;
-    const compressed = bytes.slice(dataStart,dataStart+compressedSize);
+    /* Read sizes and offsets from the central directory. This supports
+       multi-file ZIPs and archives that use a trailing data descriptor. */
+    let eocd=-1;
+    const min=Math.max(0,bytes.length-65557);
+    for(let i=bytes.length-22;i>=min;i--){
+        if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
+    }
+    if(eocd<0) throw new Error("ZIP directory was not found. Extract the file in Files and select the .DRF or .CSV inside.");
+
+    const entryCount=dv.getUint16(eocd+10,true);
+    const centralOffset=dv.getUint32(eocd+16,true);
+    const entries=[];
+    let cursor=centralOffset;
+
+    for(let i=0;i<entryCount && cursor+46<=bytes.length;i++){
+        if(dv.getUint32(cursor,true)!==0x02014b50) break;
+        const method=dv.getUint16(cursor+10,true);
+        const compressedSize=dv.getUint32(cursor+20,true);
+        const uncompressedSize=dv.getUint32(cursor+24,true);
+        const fileNameLen=dv.getUint16(cursor+28,true);
+        const extraLen=dv.getUint16(cursor+30,true);
+        const commentLen=dv.getUint16(cursor+32,true);
+        const localOffset=dv.getUint32(cursor+42,true);
+        const name=new TextDecoder("utf-8").decode(bytes.slice(cursor+46,cursor+46+fileNameLen));
+        if(name && !name.endsWith("/")) entries.push({name,method,compressedSize,uncompressedSize,localOffset});
+        cursor += 46+fileNameLen+extraLen+commentLen;
+    }
+
+    if(!entries.length) throw new Error("The ZIP contains no readable files.");
+    const preferred=
+        entries.find(e=>/\.drf$/i.test(e.name)) ||
+        entries.find(e=>/\.csv$/i.test(e.name)) ||
+        entries.find(e=>/\.txt$/i.test(e.name)) ||
+        entries[0];
+    if(preferred.localOffset+30>bytes.length || dv.getUint32(preferred.localOffset,true)!==0x04034b50){
+        throw new Error("The selected ZIP has a damaged file entry.");
+    }
+
+    const localNameLen=dv.getUint16(preferred.localOffset+26,true);
+    const localExtraLen=dv.getUint16(preferred.localOffset+28,true);
+    const dataStart=preferred.localOffset+30+localNameLen+localExtraLen;
+    const dataEnd=dataStart+preferred.compressedSize;
+    if(dataEnd>bytes.length) throw new Error("The selected ZIP is incomplete.");
+    const compressed=bytes.slice(dataStart,dataEnd);
+    const {name,method}=preferred;
 
     if(method === 0){
         return {name,text:decodeBytes(compressed)};
@@ -1493,8 +1536,20 @@ async function extractZipSingleFile(bytes){
     throw new Error("ZIP compression method " + method + " is not supported by Safari. Extract the BRIS data file in Files and select the extracted .DRF file.");
 }
 
+function fileBytes(file){
+    if(file && typeof file.arrayBuffer==="function"){
+        return file.arrayBuffer().then(buffer=>new Uint8Array(buffer));
+    }
+    return new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(new Uint8Array(reader.result));
+        reader.onerror=()=>reject(reader.error || new Error("Safari could not read the selected file."));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
 async function readTextFile(file){
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    const bytes = await fileBytes(file);
 
     if(bytes.length < 4){
         throw new Error("The selected file is empty or too small to be a BRIS data file.");
@@ -1524,7 +1579,7 @@ Parse the entire CSV, not one physical line at a time.
 That prevents quoted commas and embedded line breaks from
 shifting every field after a long text field.
 */
-function parseCSVRecords(text){
+function parseCSVRecords(text,delimiter=","){
     const records = [];
     let row = [];
     let field = "";
@@ -1547,7 +1602,7 @@ function parseCSVRecords(text){
 
         if(ch === '"'){
             quoted = true;
-        }else if(ch === ","){
+        }else if(ch === delimiter){
             row.push(field.trim());
             field = "";
         }else if(ch === "\n" || ch === "\r"){
@@ -1595,7 +1650,8 @@ function looksLikeBrisRecord(fields){
 function loadDRF(text){
 
     try{
-        const records = parseCSVRecords(text);
+        const delimiter=detectDelimiter(text);
+        const records = parseCSVRecords(text,delimiter);
 
         if(!records.length){
             throw new Error("No CSV records were found.");
@@ -1766,6 +1822,11 @@ $("drfInput").addEventListener("change",async event=>{
         $("drfStatus").className = "status err";
         $("drfStatus").textContent = "BRIS FILE ERROR: " + err.message;
     }
+});
+
+/* Selecting the same file again must still trigger change on iPhone. */
+$("drfInput").addEventListener("click",event=>{
+    event.currentTarget.value="";
 });
 
 $("loadSampleBtn").addEventListener("click",async()=>{
@@ -4377,6 +4438,7 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.2 · iPhone/Safari build 2026-09-02</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.3 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
+
