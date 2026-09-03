@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.4.1 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v5.5 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -692,7 +692,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.4.1</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.5</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -1675,6 +1675,8 @@ function loadDRF(text){
                     trackCondition:getField(fields,306+i),
                     dist:getNumber(fields,316+i),
                     surf:getField(fields,326+i),
+                    entrants:getNumber(fields,346+i),
+                    post:getField(fields,356+i),
                     fin:getField(fields,616+i),
                     speed:getNumber(fields,846+i),
                     pace2:getNumber(fields,766+i),
@@ -2703,6 +2705,97 @@ function bestSpeedFit(horse,field){
     ));
 }
 
+
+function postBucket(post,entrants){
+    const p=number(post);
+    const n=number(entrants);
+    if(p<=0 || n<=1) return "MIDDLE";
+    const relative=(p-1)/(n-1);
+    if(relative < 1/3) return "INSIDE";
+    if(relative < 2/3) return "MIDDLE";
+    return "OUTSIDE";
+}
+
+function postFinishPerformance(fin,entrants){
+    const f=number(fin);
+    const n=number(entrants);
+    if(f<=0 || f>=90 || n<=1) return null;
+    return Math.max(0,Math.min(1,1-((f-1)/(n-1))));
+}
+
+function postPositionEvidence(horse,field){
+    const targetTrack=String(horse.currentTrack || "").trim().toUpperCase();
+    const targetSurface=horse.currentSurface;
+    const targetDistance=Math.abs(number(horse.currentDistance));
+
+    if(!targetSurface || targetDistance<=0){
+        return {score:.5,sample:0,bucket:"MIDDLE",source:"none",delta:0,bucketSample:0};
+    }
+
+    const todaysSpan=Math.max(
+        field.length,
+        ...field.map(h=>number(h.post)).filter(v=>v>0)
+    );
+    const currentBucket=postBucket(horse.post,todaysSpan);
+
+    const collect=(trackOnly)=>{
+        const observations=[];
+        rows.forEach(sourceHorse=>{
+            (sourceHorse.ppRaces || []).forEach(r=>{
+                const priorTrack=String(r.track || "").trim().toUpperCase();
+                const priorDistance=Math.abs(number(r.dist));
+                const entrants=number(r.entrants);
+                const priorPost=number(r.post);
+                const performance=postFinishPerformance(r.fin,entrants);
+
+                if(performance===null) return;
+                if(!sameSurface(targetSurface,r.surf)) return;
+                if(targetDistance>0 && priorDistance>0 && Math.abs(priorDistance-targetDistance)>220) return;
+                if(trackOnly && targetTrack && priorTrack!==targetTrack) return;
+
+                observations.push({
+                    bucket:postBucket(priorPost,entrants),
+                    performance
+                });
+            });
+        });
+        return observations;
+    };
+
+    let observations=collect(true);
+    let source="track";
+    if(observations.length < 20){
+        observations=collect(false);
+        source="all";
+    }
+
+    if(observations.length < 12){
+        return {score:.5,sample:observations.length,bucket:currentBucket,source,delta:0,bucketSample:0};
+    }
+
+    const overall=observations.reduce((sum,x)=>sum+x.performance,0)/observations.length;
+    const bucketRows=observations.filter(x=>x.bucket===currentBucket);
+
+    if(bucketRows.length < 4){
+        return {score:.5,sample:observations.length,bucket:currentBucket,source,delta:0,bucketSample:bucketRows.length};
+    }
+
+    const raw=bucketRows.reduce((sum,x)=>sum+x.performance,0)/bucketRows.length;
+    const priorWeight=20;
+    const shrunk=(raw*bucketRows.length + overall*priorWeight)/(bucketRows.length+priorWeight);
+    const delta=shrunk-overall;
+    const score=Math.max(.20,Math.min(.80,.5+delta*2));
+
+    return {
+        score,
+        sample:observations.length,
+        bucket:currentBucket,
+        source,
+        delta,
+        bucketSample:bucketRows.length
+    };
+}
+
 function calculateHorseScore(horse,field){
 
     const pp=relativeFeature(horse,field,x=>number(x.primePower));
@@ -2718,6 +2811,8 @@ function calculateHorseScore(horse,field){
     const jockey=jockeyStrength(horse);
     const combo=tjComboStrength(horse);
     const workouts=workoutScore(horse);
+    const postData=postPositionEvidence(horse,field);
+    const postFit=postData.score;
 
     const surfaceFit=percentileRank(
         surfaceSpeedScore(horse),
@@ -2753,6 +2848,9 @@ function calculateHorseScore(horse,field){
         score += percentileRank(q,qField)*.02;
     }
 
+    // Small, empirical post-position adjustment tied to today's surface/distance.
+    score += (postFit-.5)*.05;
+
     // Recency: very long layoffs add uncertainty, not an automatic
     // penalty. Recent races are already represented in form/speed.
     const days=number(horse.daysSinceLast);
@@ -2780,7 +2878,8 @@ function calculateHorseScore(horse,field){
         score,
         components:{
             pp,currentSpeed,recentSpeed,bestSpeed,form,
-            pace,cls,surfaceFit,conditionFit,career,trainer,jockey,combo,workouts,quality
+            pace,cls,surfaceFit,conditionFit,career,trainer,jockey,combo,workouts,
+            postFit,postData,quality
         }
     };
 }
@@ -2975,6 +3074,12 @@ function buildReason(top,second,field){
             "productive jockey win rate"
         );
 
+    }
+
+    if(c.postFit >= .60){
+        reasons.push(
+            "favorable post profile for today's surface and distance"
+        );
     }
 
 
@@ -4663,6 +4768,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.4.1 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.5 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
