@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -3804,6 +3804,266 @@ $("computeBtn").addEventListener(
    H2H
 ============================================================ */
 
+function h2hNorm(v){
+
+    return String(v || "")
+        .trim()
+        .replace(/[^0-9A-Za-z]/g,"")
+        .toUpperCase();
+
+}
+
+
+function h2hFinishNumber(v){
+
+    const n = parseInt(String(v || "").trim(),10);
+
+    return Number.isFinite(n) && n > 0
+        ? n
+        : null;
+
+}
+
+
+function h2hOrdinal(v){
+
+    const n = h2hFinishNumber(v);
+
+    if(n === null){
+        return safe(v || "?");
+    }
+
+    const mod100 = n % 100;
+    const mod10 = n % 10;
+
+    const suffix =
+        (mod100 >= 11 && mod100 <= 13)
+        ? "th"
+        :
+        (
+            mod10 === 1
+            ? "st"
+            :
+            mod10 === 2
+            ? "nd"
+            :
+            mod10 === 3
+            ? "rd"
+            :
+            "th"
+        );
+
+    return n + suffix;
+
+}
+
+
+function currentRaceH2HGroups(field){
+
+    const groups = new Map();
+
+    (field || []).forEach(horse=>{
+
+        (horse.ppRaces || []).forEach(pp=>{
+
+            const dateKey = h2hNorm(pp.date);
+            const raceKey = h2hNorm(pp.raceNum);
+
+            if(!dateKey || !raceKey){
+                return;
+            }
+
+            const key = dateKey + "|" + raceKey;
+
+            if(!groups.has(key)){
+                groups.set(
+                    key,
+                    {
+                        date:pp.date,
+                        raceNum:pp.raceNum,
+                        track:pp.track || "",
+                        runners:[]
+                    }
+                );
+            }
+
+            groups.get(key).runners.push({
+                horse,
+                pp
+            });
+
+        });
+
+    });
+
+
+    return Array.from(groups.values())
+        .filter(g=>g.runners.length >= 2)
+        .map(g=>{
+
+            /*
+              A horse should appear only once in a grouped prior race.
+              This also protects the display from accidental duplicate PP rows.
+            */
+            const seen = new Set();
+
+            g.runners = g.runners.filter(item=>{
+
+                if(seen.has(item.horse.id)){
+                    return false;
+                }
+
+                seen.add(item.horse.id);
+                return true;
+
+            });
+
+            return g;
+
+        })
+        .filter(g=>g.runners.length >= 2)
+        .sort((a,b)=>{
+
+            const ad = String(a.date || "").replace(/\D/g,"");
+            const bd = String(b.date || "").replace(/\D/g,"");
+
+            if(ad !== bd){
+                return bd.localeCompare(ad);
+            }
+
+            return Number(b.raceNum || 0) - Number(a.raceNum || 0);
+
+        });
+
+}
+
+
+function renderH2HGroup(group){
+
+    const ordered = [...group.runners].sort((a,b)=>{
+
+        const af = h2hFinishNumber(a.pp.fin);
+        const bf = h2hFinishNumber(b.pp.fin);
+
+        if(af === null && bf === null) return 0;
+        if(af === null) return 1;
+        if(bf === null) return -1;
+
+        return af - bf;
+
+    });
+
+
+    let relationshipLines = [];
+
+    ordered.forEach((a,i)=>{
+
+        const af = h2hFinishNumber(a.pp.fin);
+
+        if(af === null){
+            return;
+        }
+
+        const beaten = [];
+
+        ordered.forEach((b,j)=>{
+
+            if(i === j){
+                return;
+            }
+
+            const bf = h2hFinishNumber(b.pp.fin);
+
+            if(bf !== null && af < bf){
+                beaten.push(
+                    safe(b.horse.horse)
+                );
+            }
+
+        });
+
+        if(beaten.length){
+            relationshipLines.push(`
+                <div class="h2h-stat">
+                    <b>${safe(a.horse.horse)}</b>
+                    previously beat
+                    <b>${beaten.join(", ")}</b>
+                </div>
+            `);
+        }
+
+    });
+
+
+    const finishRows = ordered.map(item=>`
+
+        <div class="h2h-stat" style="
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            border-bottom:1px solid var(--paper-line);
+            padding:5px 0;
+        ">
+
+            <span>
+                #${safe(item.horse.post)}
+                <b>${safe(item.horse.horse)}</b>
+            </span>
+
+            <span>
+                <b>${h2hOrdinal(item.pp.fin)}</b>
+            </span>
+
+        </div>
+
+    `).join("");
+
+
+    return `
+
+        <div class="h2h-card" style="margin-bottom:12px;">
+
+            <h3>
+                Previous Direct Meeting —
+                ${safe(formatDate(group.date))}
+                R${safe(group.raceNum)}
+                ${
+                    group.track
+                    ? " · " + safe(group.track)
+                    : ""
+                }
+            </h3>
+
+            ${finishRows}
+
+            <div style="
+                margin-top:9px;
+                padding-top:7px;
+                border-top:2px solid var(--paper-line);
+            ">
+
+                ${
+                    relationshipLines.length
+                    ?
+                    relationshipLines.join("")
+                    :
+                    `
+                    <div class="h2h-stat">
+                        Prior meeting found, but no beat relationship is inferred
+                        from tied or non-numeric finish positions.
+                    </div>
+                    `
+                }
+
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
 function buildH2H(){
 
     const active =
@@ -3812,20 +4072,27 @@ function buildH2H(){
         );
 
 
-    let options = "";
+    const races =
+        [...new Set(
+            active.map(r=>String(r.race))
+        )]
+        .sort((a,b)=>Number(a)-Number(b));
 
-    active.forEach(r=>{
 
-        options += `
+    let raceOptions = "";
 
-        <option value="${r.id}">
+    races.forEach(race=>{
 
-            R${safe(r.race)}
-            #
-            ${safe(r.post)}
-            ${safe(r.horse)}
+        const count =
+            active.filter(
+                h=>String(h.race) === String(race)
+            ).length;
 
-        </option>
+        raceOptions += `
+
+            <option value="${safe(race)}">
+                Race ${safe(race)} — ${count} runners
+            </option>
 
         `;
 
@@ -3835,153 +4102,126 @@ function buildH2H(){
     $("h2hSection").innerHTML = `
 
         <h2>
-            Head-to-Head Analysis
+            Head-to-Head — Previous Direct Meetings
         </h2>
 
         <div class="h2h-card">
 
-            <div class="h2h-select-grid">
+            <label style="
+                font:700 10px var(--mono);
+                display:block;
+                margin-bottom:5px;
+            ">
+                CURRENT RACE
+            </label>
 
-                <div>
+            <select
+                id="h2hRace"
+                style="width:100%;margin-bottom:12px;"
+            >
+                ${raceOptions}
+            </select>
 
-                    <label
-                        style="
-                        font:700 10px var(--mono);
-                        ">
-
-                        HORSE A
-
-                    </label>
-
-                    <select id="h2hA">
-                        ${options}
-                    </select>
-
-                </div>
-
-                <div>
-
-                    <label
-                        style="
-                        font:700 10px var(--mono);
-                        ">
-
-                        HORSE B
-
-                    </label>
-
-                    <select id="h2hB">
-                        ${options}
-                    </select>
-
-                </div>
-
-            </div>
-
-            <div
-                class="h2h-comparison-grid"
-                id="h2hComparison">
-            </div>
+            <div id="h2hComparison"></div>
 
         </div>
 
     `;
 
 
-    if(active.length > 1){
+    if(races.length){
 
-        $("h2hB").value =
-            active[1].id;
+        $("h2hRace").value =
+            races[0];
+
+        $("h2hRace").addEventListener(
+            "change",
+            renderH2H
+        );
+
+        renderH2H();
+
+    }else{
+
+        $("h2hComparison").innerHTML = `
+            <div class="h2h-stat">
+                No active runners loaded.
+            </div>
+        `;
 
     }
-
-
-    $("h2hA").addEventListener(
-        "change",
-        renderH2H
-    );
-
-    $("h2hB").addEventListener(
-        "change",
-        renderH2H
-    );
-
-
-    renderH2H();
 
 }
 
 
 function renderH2H(){
 
-    const a =
-        rows.find(
-            r=>r.id ==
-            $("h2hA").value
+    const race =
+        $("h2hRace")
+        ?
+        $("h2hRace").value
+        :
+        "";
+
+
+    const field =
+        rows.filter(
+            r=>
+            r.horse &&
+            !r.scratched &&
+            String(r.race) === String(race)
         );
 
-    const b =
-        rows.find(
-            r=>r.id ==
-            $("h2hB").value
-        );
+
+    const groups =
+        currentRaceH2HGroups(field);
 
 
-    $("h2hComparison").innerHTML =
+    if(!groups.length){
 
-        renderDirectMeetings(a,b) +
-        renderH2HHorse(a) +
-        renderH2HHorse(b);
+        $("h2hComparison").innerHTML = `
 
-}
+            <div class="h2h-card">
 
+                <h3>
+                    Race ${safe(race)}
+                </h3>
 
-function h2hKeyPart(v){
-    return String(v || "").trim().replace(/[^0-9A-Za-z]/g,"").toUpperCase();
-}
-
-
-function renderDirectMeetings(a,b){
-
-    if(!a || !b || a.id == b.id) return "";
-
-    const meetings = [];
-
-    (a.ppRaces || []).forEach(pa=>{
-        const dateA = h2hKeyPart(pa.date);
-        const raceA = h2hKeyPart(pa.raceNum);
-        if(!dateA || !raceA) return;
-
-        (b.ppRaces || []).forEach(pb=>{
-            if(dateA !== h2hKeyPart(pb.date) || raceA !== h2hKeyPart(pb.raceNum)) return;
-
-            const fa = parseInt(pa.fin,10);
-            const fb = parseInt(pb.fin,10);
-            let result = "Prior meeting found.";
-
-            if(Number.isFinite(fa) && Number.isFinite(fb)){
-                if(fa < fb) result = `${safe(a.horse)} previously beat ${safe(b.horse)}.`;
-                else if(fb < fa) result = `${safe(b.horse)} previously beat ${safe(a.horse)}.`;
-                else result = "Same recorded finish position — no winner inferred.";
-            }
-
-            meetings.push(`
-                <div class="h2h-card" style="grid-column:1/-1;margin-bottom:10px;">
-                    <h3>Previous Direct Meeting</h3>
-                    <div class="h2h-stat"><b>${safe(pa.date)} · Race ${safe(pa.raceNum)}</b>${pa.track ? ` · ${safe(pa.track)}` : ""}</div>
-                    <div class="h2h-stat">#${safe(a.post)} ${safe(a.horse)} — Finish <b>${safe(pa.fin || "?")}</b></div>
-                    <div class="h2h-stat">#${safe(b.post)} ${safe(b.horse)} — Finish <b>${safe(pb.fin || "?")}</b></div>
-                    <div class="h2h-stat"><b>${result}</b></div>
+                <div class="h2h-stat">
+                    No previous direct meeting was found among today's runners
+                    using the same prior race date + prior race number.
                 </div>
-            `);
-        });
-    });
 
-    if(!meetings.length){
-        return `<div class="h2h-card" style="grid-column:1/-1;margin-bottom:10px;"><h3>Previous Direct Meetings</h3><div class="h2h-stat">No matching prior race date + race number found for these two horses.</div></div>`;
+            </div>
+
+        `;
+
+        return;
+
     }
 
-    return meetings.join("");
+
+    $("h2hComparison").innerHTML = `
+
+        <div class="h2h-stat" style="margin-bottom:10px;">
+
+            <b>
+                ${groups.length}
+                previous direct
+                ${groups.length === 1 ? "meeting" : "meetings"}
+                found for Race ${safe(race)}
+            </b>
+
+        </div>
+
+        ${
+            groups
+            .map(renderH2HGroup)
+            .join("")
+        }
+
+    `;
+
 }
 
 
