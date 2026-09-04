@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v5.6 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.0 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -533,7 +533,7 @@ tbody input:focus{
 
 .analysis-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(3,1fr);
   gap:14px;
 }
 
@@ -554,9 +554,15 @@ tbody input:focus{
   border-left:5px solid var(--green);
 }
 
+.analysis-box.questionable{
+  border-left:5px solid #b7791f;
+}
+
 .analysis-box.pretender{
   border-left:5px solid var(--red);
 }
+
+.field-view-toggle{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.field-view-toggle button{border:1px solid var(--paper-line);background:#fff;padding:8px 12px;border-radius:4px;font:700 11px var(--mono);cursor:pointer}.field-view-toggle button.on{background:var(--board-950);color:#fff}.trainer-multi{display:inline-block;margin-left:5px;padding:2px 5px;border-radius:3px;background:#fff3cd;color:#6b4f00;font:800 9px var(--mono)}
 
 .analysis-box h4{
   margin:0 0 8px;
@@ -692,7 +698,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v5.6</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.0</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -880,7 +886,7 @@ Decision Board
 </button>
 
 <button data-tab="analysis">
-Contenders / Pretenders
+Contenders / Questionable / Pretenders
 </button>
 
 </div>
@@ -1677,9 +1683,6 @@ function loadDRF(text){
                     surf:getField(fields,326+i),
                     entrants:getNumber(fields,346+i),
                     post:getField(fields,356+i),
-                    winnerName:getField(fields,406+i),
-                    placeName:getField(fields,416+i),
-                    showName:getField(fields,426+i),
                     fin:getField(fields,616+i),
                     speed:getNumber(fields,846+i),
                     pace2:getNumber(fields,766+i),
@@ -3125,6 +3128,91 @@ function buildReason(top,second,field){
    COMPUTE RACE CARD
 ============================================================ */
 
+function classificationEvidence(item,scored,field){
+    const horse=item.horse;
+    const pp=(horse.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
+    const rank=scored.indexOf(item)+1;
+    const top=scored[0];
+    const contenderBase=(rank<=3 || item.probability >= top.probability*.72) && classDropStatus(horse).qualified;
+
+    if(contenderBase){
+        return {label:"CONTENDER",reason:rank===1 ? "Top model-ranked win candidate." : "Ranks with the leading win candidates on current evidence."};
+    }
+
+    if(!pp.length){
+        return {label:"QUESTIONABLE",reason:"First-time starter / no usable past-performance race evidence. Do not eliminate for lack of data."};
+    }
+
+    const targetSurface=horse.currentSurface;
+    const targetDistance=Math.abs(number(horse.currentDistance));
+    let comparable=pp.filter(p=>{
+        const d=Math.abs(number(p.dist));
+        const surfaceOK=!targetSurface || !p.surf || sameSurface(targetSurface,p.surf);
+        const distanceOK=!targetDistance || !d || Math.abs(d-targetDistance)<=330;
+        return surfaceOK && distanceOK;
+    });
+    if(!comparable.length) comparable=pp.slice(0,4);
+
+    const poor=comparable.filter(p=>{
+        const fin=number(p.fin), n=number(p.entrants);
+        return n>=4 && fin>Math.ceil(n*.60);
+    }).length;
+    const repeatedNegative=comparable.length>=3 && poor>=Math.max(2,Math.ceil(comparable.length*.60));
+    const lowRank=rank>Math.ceil(scored.length*.60) && item.probability < top.probability*.72;
+    const weakSpeed=number(horse.lastSpeed)>0 && scored.filter(x=>number(x.horse.lastSpeed)>number(horse.lastSpeed)).length>=Math.ceil(scored.length*.60);
+
+    if(repeatedNegative && lowRank && weakSpeed){
+        return {label:"PRETENDER",reason:`Negative PP evidence: ${poor} of ${comparable.length} comparable/recent starts finished in the lower part of the field, with a weak field-relative model/speed rank.`};
+    }
+
+    return {label:"QUESTIONABLE",reason:"Past performances do not provide enough negative evidence to eliminate this horse. Morning line is not used as an elimination rule."};
+}
+
+function trainerMultipleEntryMap(field){
+    const counts={};
+    (field || []).forEach(h=>{
+        const key=normalizeName(h.trainer);
+        if(key) counts[key]=(counts[key]||0)+1;
+    });
+    return counts;
+}
+
+function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
+    const trainerCounts=trainerMultipleEntryMap(field);
+    const ordered=[...field].sort((a,b)=>number(a.post)-number(b.post));
+    const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
+    return `
+    <div class="race-card">
+      <h3>Race ${safe(raceNum)} — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
+      <div class="table-wrap"><table class="compact-table"><thead><tr>
+        <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>${liveOnly ? "Class" : "Status"}</th>
+      </tr></thead><tbody>
+      ${shown.map(h=>{
+          const item=scored.find(x=>x.horse.id===h.id);
+          const cls=classMap[h.id];
+          const multi=trainerCounts[normalizeName(h.trainer)]>1;
+          const status=h.scratched ? '<span class="badge badge-red">SCRATCHED</span>' : liveOnly && cls ? `<span class="badge ${cls.label==="QUESTIONABLE" ? "badge-blue" : ""}">${cls.label}</span>` : '';
+          return `<tr class="${h.scratched?'scratched-row':''}">
+            <td>${safe(h.post)}</td>
+            <td><span style="font-weight:700;cursor:pointer;text-decoration:underline dotted;" onclick="openPP(${h.id})">${safe(h.horse)}</span>${h.jockeyChanged?'<span class="badge badge-red">NEW RIDER</span>':''}${multi?'<span class="trainer-multi">TRAINER MULTIPLE</span>':''}</td>
+            <td>${item?scored.indexOf(item)+1:'-'}</td>
+            <td>${item?(item.probability*100).toFixed(1)+'%':'-'}</td>
+            <td>${safe(h.score||h.primePower||'-')}</td><td>${safe(h.lastSpeed||'-')}</td><td>${safe(h.odds||'-')}</td><td>${status}</td>
+          </tr>`;
+      }).join('')}
+      </tbody></table></div>
+    </div>`;
+}
+
+function setRaceCardView(view){
+    const full=$("fullFieldView"), live=$("liveFieldView");
+    if(!full || !live) return;
+    const isLive=view==="live";
+    full.style.display=isLive?"none":"block";
+    live.style.display=isLive?"block":"none";
+    document.querySelectorAll(".field-view-toggle button").forEach(b=>b.classList.toggle("on",b.dataset.view===view));
+}
+
 function computeRaceCard(){
 
     computedRaces = {};
@@ -3159,6 +3247,7 @@ function computeRaceCard(){
 
     let bestHTML = "";
     let cardHTML = "";
+    let liveCardHTML = "";
     let analysisHTML = "";
 
 
@@ -3436,337 +3525,39 @@ function computeRaceCard(){
 
 
         /* ====================================================
-           FULL CARD
+           FULL FIELD + LIVE FIELD + THREE-WAY CLASSIFICATION
+           Morning line is NOT an elimination rule.
         ==================================================== */
+        const classMap={};
+        scored.forEach(item=>{ classMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
 
-        cardHTML += `
+        cardHTML += fieldTableHTML(raceNum,fullField,scored,classMap,false);
+        liveCardHTML += fieldTableHTML(raceNum,fullField,scored,classMap,true);
 
-        <div class="race-card">
-
-            <h3>
-                Race ${safe(raceNum)}
-                —
-                Full Field
-                (${fullField.length}
-                Total /
-                ${activeField.length}
-                Active)
-            </h3>
-
-            <div class="table-wrap">
-
-            <table class="compact-table">
-
-            <thead>
-
-            <tr>
-
-                <th>Rank</th>
-                <th>Post</th>
-                <th>Horse</th>
-                <th>Model Share</th>
-                <th>Prime Power</th>
-                <th>Speed</th>
-                <th>M/L</th>
-                <th>Status</th>
-
-            </tr>
-
-            </thead>
-
-            <tbody>
-
-        `;
-
-
-        fullField.forEach(h=>{
-
-            const item =
-                scored.find(
-                    x=>x.horse.id === h.id
-                );
-
-
-            let status = "";
-
-            if(h.scratched){
-
-                status =
-                    '<span class="badge badge-red">SCRATCHED</span>';
-
-            }else if(
-                item &&
-                item === top
-            ){
-
-                status =
-                    '<span class="badge">TOP RATED</span>';
-
-            }else if(
-                item &&
-                scored.indexOf(item) < 3
-            ){
-
-                status =
-                    '<span class="badge badge-blue">CONTENDER</span>';
-
-            }
-
-
-            cardHTML += `
-
-            <tr class="${
-                h.scratched
-                ?
-                "scratched-row"
-                :
-                ""
-            }">
-
-                <td>
-                    ${
-                        item
-                        ?
-                        scored.indexOf(item)+1
-                        :
-                        "-"
-                    }
-                </td>
-
-                <td>
-                    ${safe(h.post)}
-                </td>
-
-                <td>
-
-                    <span
-                        style="font-weight:700;cursor:pointer;text-decoration:underline dotted;"
-                        onclick="openPP(${h.id})">
-
-                        ${safe(h.horse)}
-
-                    </span>
-
-                    ${
-                        h.jockeyChanged
-                        ?
-                        '<span class="badge badge-red">NEW RIDER</span>'
-                        :
-                        ""
-                    }
-
-                </td>
-
-                <td>
-
-                    ${
-                        item
-                        ?
-                        (
-                            item.probability*100
-                        ).toFixed(1)+"%"
-                        :
-                        "-"
-                    }
-
-                </td>
-
-                <td>
-                    ${safe(
-                        h.score ||
-                        h.primePower ||
-                        "-"
-                    )}
-                </td>
-
-                <td>
-                    ${safe(
-                        h.lastSpeed ||
-                        "-"
-                    )}
-                </td>
-
-                <td>
-                    ${safe(
-                        h.odds ||
-                        "-"
-                    )}
-                </td>
-
-                <td>
-                    ${status}
-                </td>
-
-            </tr>
-
-            `;
-
-        });
-
-
-        cardHTML += `
-
-            </tbody>
-
-            </table>
-
-            </div>
-
-        </div>
-
-        `;
-
-
-        /* ====================================================
-           CONTENDERS / PRETENDERS
-        ==================================================== */
-
-        const contenders =
-            scored.filter(
-                (item,index)=>
-                    (index < 3 || item.probability >= top.probability*.72) &&
-                    classDropStatus(item.horse).qualified
-            );
-
-
-        const pretenders =
-            scored.filter(
-                item=>
-                    !contenders.includes(item)
-            );
-
+        const contenders=scored.filter(item=>classMap[item.horse.id].label==="CONTENDER");
+        const questionable=scored.filter(item=>classMap[item.horse.id].label==="QUESTIONABLE");
+        const pretenders=scored.filter(item=>classMap[item.horse.id].label==="PRETENDER");
+        const trainerCounts=trainerMultipleEntryMap(activeField);
+        const multiTrainers=Object.keys(trainerCounts).filter(k=>trainerCounts[k]>1);
 
         analysisHTML += `
-
         <div class="analysis-card">
-
-            <h3>
-                Race ${safe(raceNum)}
-                — Contenders vs Pretenders
-            </h3>
-
-            <div class="analysis-grid">
-
-                <div class="analysis-box contender">
-
-                    <h4>
-                        Contenders
-                        (${contenders.length})
-                    </h4>
-
-        `;
-
-
-        contenders.forEach(item=>{
-
-            const drop=classDropStatus(item.horse);
-
-            analysisHTML += `
-
-            <div class="analysis-item">
-
-                <b>
-                    #${safe(item.horse.post)}
-                    ${safe(item.horse.horse)}
-                </b>
-
-                ${drop.dropping ? `<br><span class="badge badge-green">RECENT CLASS DROP · ${drop.days} DAYS</span>` : ""}
-
-                <br>
-
-                Model:
-                <b>
-                    ${(item.probability*100).toFixed(1)}%
-                </b>
-
-                &nbsp; |
-                PP:
-                <b>
-                    ${safe(
-                        item.horse.score ||
-                        item.horse.primePower ||
-                        "-"
-                    )}
-                </b>
-
+          <h3>Race ${safe(raceNum)} — Contenders / Questionable / Pretenders</h3>
+          ${multiTrainers.length ? `<div class="warning-box"><b>TRAINER MULTIPLE ENTRY:</b> ${multiTrainers.map(k=>{const h=activeField.find(x=>normalizeName(x.trainer)===k);return safe(h?h.trainer:k);}).join(', ')}</div>` : ''}
+          <div class="analysis-grid">
+            <div class="analysis-box contender"><h4>Contenders (${contenders.length})</h4>
+              ${contenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b><br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None.</div>'}
             </div>
-
-            `;
-
-        });
-
-
-        analysisHTML += `
-
-                </div>
-
-                <div class="analysis-box pretender">
-
-                    <h4>
-                        Pretenders / Weak
-                        (${pretenders.length})
-                    </h4>
-
-        `;
-
-
-        if(!pretenders.length){
-
-            analysisHTML += `
-
-                <div class="analysis-item">
-                    None — active field is relatively competitive.
-                </div>
-
-            `;
-
-        }else{
-
-            pretenders.forEach(item=>{
-
-                const drop=classDropStatus(item.horse);
-
-                analysisHTML += `
-
-                <div class="analysis-item">
-
-                    <b>
-                        #${safe(item.horse.post)}
-                        ${safe(item.horse.horse)}
-                    </b>
-
-                    ${drop.dropping && !drop.recent ? `<br><span class="badge badge-red">STALE CLASS DROP · ${drop.days || "?"} DAYS</span>` : ""}
-
-                    <br>
-
-                    Model:
-                    <b>
-                        ${(item.probability*100).toFixed(1)}%
-                    </b>
-
-                </div>
-
-                `;
-
-            });
-
-        }
-
-
-        analysisHTML += `
-
-                </div>
-
+            <div class="analysis-box questionable"><h4>Questionable / Live Longshots (${questionable.length})</h4>
+              ${questionable.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b><br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None.</div>'}
             </div>
-
-            ${renderInlineRaceH2H(activeField)}
-
-        </div>
-
-        `;
-
+            <div class="analysis-box pretender"><h4>Pretenders (${pretenders.length})</h4>
+              ${pretenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b><br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None — no horse earned elimination from negative PP evidence.</div>'}
+            </div>
+          </div>
+          ${renderInlineRaceH2H(activeField)}
+        </div>`;
     });
-
 
     $("bestSection").innerHTML = `
 
@@ -3800,20 +3591,18 @@ function computeRaceCard(){
 
 
     $("cardSection").innerHTML = `
-
-        <h2>
-            Full Race Cards
-        </h2>
-
-        ${cardHTML}
-
+        <h2>Full Race Cards</h2>
+        <p class="note"><b>FULL FIELD</b> keeps every runner. <b>LIVE FIELD</b> removes only horses that earned Pretender status from negative past-performance evidence. First-time starters and uncertain horses remain as Questionable.</p>
+        <div class="field-view-toggle"><button class="on" data-view="full" onclick="setRaceCardView('full')">FULL FIELD</button><button data-view="live" onclick="setRaceCardView('live')">LIVE FIELD — HIDE PRETENDERS</button></div>
+        <div id="fullFieldView">${cardHTML}</div>
+        <div id="liveFieldView" style="display:none">${liveCardHTML}</div>
     `;
 
 
     $("analysisSection").innerHTML = `
 
         <h2>
-            Contenders vs Pretenders
+            Contenders / Questionable / Pretenders
         </h2>
 
         ${analysisHTML}
@@ -4456,36 +4245,6 @@ function renderH2HHorse(horse){
 }
 
 
-
-function normalizeHorseNameForMatch(value){
-
-    return String(value || "")
-        .toUpperCase()
-        .replace(/\([^)]*\)/g,"")
-        .replace(/[^A-Z0-9]/g,"")
-        .trim();
-
-}
-
-
-function ppFinishNameHTML(name,todayNames){
-
-    const raw=String(name || "").trim();
-
-    if(!raw){
-        return "—";
-    }
-
-    const key=normalizeHorseNameForMatch(raw);
-    const isToday=todayNames.has(key);
-
-    return isToday
-        ? `<b>${safe(raw)}</b>`
-        : safe(raw);
-
-}
-
-
 /* ============================================================
    PP MODAL
 ============================================================ */
@@ -4500,20 +4259,6 @@ function openPP(id){
     if(!horse){
         return;
     }
-
-    /*
-    Bold W/P/S horses from prior races when that horse is also
-    entered in this same race today.
-    */
-    const todayNames=new Set(
-        rows
-            .filter(r=>
-                r.horse &&
-                String(r.race)===String(horse.race)
-            )
-            .map(r=>normalizeHorseNameForMatch(r.horse))
-            .filter(Boolean)
-    );
 
 
     $("ppContent").innerHTML = `
@@ -4642,9 +4387,6 @@ function openPP(id){
         <th>Surface</th>
         <th>Finish</th>
         <th>Speed</th>
-        <th>Winner</th>
-        <th>Place</th>
-        <th>Show</th>
         <th>Comment</th>
 
     </tr>
@@ -4693,18 +4435,6 @@ function openPP(id){
                 <b>
                     ${safe(p.speed)}
                 </b>
-            </td>
-
-            <td>
-                ${ppFinishNameHTML(p.winnerName,todayNames)}
-            </td>
-
-            <td>
-                ${ppFinishNameHTML(p.placeName,todayNames)}
-            </td>
-
-            <td>
-                ${ppFinishNameHTML(p.showName,todayNames)}
             </td>
 
             <td>
@@ -4830,6 +4560,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v5.6 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.0 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
