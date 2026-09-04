@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.6 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.7 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -699,6 +699,38 @@ tbody input:focus{
   font-family:var(--mono);
   font-size:10.5px;
 }
+
+  .race-jump-nav{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin:10px 0 14px;
+  }
+  .race-jump-btn{
+    border:1px solid #9ca3af;
+    background:#fff;
+    color:#111827;
+    border-radius:999px;
+    padding:6px 10px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .race-jump-btn.active{
+    outline:3px solid rgba(21,51,42,.18);
+    border-color:#15332A;
+    background:#15332A;
+    color:#fff;
+  }
+  .race-number-link{
+    cursor:pointer;
+    text-decoration:underline;
+    text-underline-offset:2px;
+    font-weight:800;
+  }
+  .race-anchor-target{
+    scroll-margin-top:80px;
+  }
+
 </style>
 </head>
 
@@ -708,7 +740,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.6</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.7</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -955,7 +987,8 @@ let rowId = 1;
 let computedRaces = {};
 let trackConditions = {};
 let probabilityDetails = {};
-let raceCardView = "full";
+let raceCardView="live";
+let activeRaceNumber=null;
 
 
 /* ============================================================
@@ -3231,7 +3264,7 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
     return `
     <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
-      <h3><span style="cursor:pointer;text-decoration:underline dotted;" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for this entire race">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
+      <h3><span class="race-number-link" onclick="activeRaceNumber=Number('${safe(raceNum)}');openRacePP('${safe(raceNum)}')" title="Open Past Performances for this entire race">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
       <div class="table-wrap"><table class="compact-table"><thead><tr>
         <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Class</th>
       </tr></thead><tbody>
@@ -3252,6 +3285,31 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     </div>`;
 }
 
+
+function raceJumpNavHTML(raceNumbers, tabKey){
+    return `<div class="race-jump-nav">` + raceNumbers.map(r=>{
+        const active=Number(activeRaceNumber)===Number(r) ? " active" : "";
+        return `<button class="race-jump-btn${active}" onclick="jumpToRace('${tabKey}',${Number(r)},this)">Race ${r}</button>`;
+    }).join("") + `</div>`;
+}
+
+function jumpToRace(tabKey,raceNum,btn){
+    activeRaceNumber=Number(raceNum);
+    document.querySelectorAll('.race-jump-btn').forEach(b=>b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+
+    const target=document.getElementById(`${tabKey}-race-${raceNum}`) ||
+                 document.getElementById(`race-${raceCardView}-${raceNum}`) ||
+                 document.getElementById(`race-full-${raceNum}`) ||
+                 document.getElementById(`race-live-${raceNum}`) ||
+                 document.getElementById(`decision-race-${raceNum}`) ||
+                 document.getElementById(`contenders-race-${raceNum}`);
+    if(target){
+        target.scrollIntoView({behavior:"smooth",block:"start"});
+        target.classList.add("race-anchor-target");
+    }
+}
+
 function setRaceCardView(view){
     raceCardView = view === "live" ? "live" : "full";
     const full=$("fullFieldView"), live=$("liveFieldView");
@@ -3259,7 +3317,13 @@ function setRaceCardView(view){
     const isLive=raceCardView==="live";
     full.style.display=isLive?"none":"block";
     live.style.display=isLive?"block":"none";
-    document.querySelectorAll(".field-view-toggle button").forEach(b=>b.classList.toggle("on",b.dataset.view===view));
+    document.querySelectorAll(".field-view-toggle button").forEach(b=>b.classList.toggle("on",b.dataset.view===raceCardView));
+    if(activeRaceNumber!==null){
+        document.querySelectorAll(".race-jump-btn").forEach(b=>{
+            const m=(b.textContent||"").match(/(\d+)/);
+            b.classList.toggle("active",m && Number(m[1])===Number(activeRaceNumber));
+        });
+    }
 }
 
 function renderRaceHorsePP(horse){
@@ -3311,6 +3375,11 @@ function renderRaceHorsePP(horse){
 }
 
 function openRacePP(raceNum){
+    activeRaceNumber=Number(raceNum);
+    document.querySelectorAll(".race-jump-btn").forEach(b=>{
+        const m=(b.textContent||"").match(/(\d+)/);
+        b.classList.toggle("active",m && Number(m[1])===Number(activeRaceNumber));
+    });
     const field=(computedRaces[String(raceNum)] || []).slice().sort((a,b)=>number(a.post)-number(b.post));
     if(!field.length) return;
 
@@ -3337,9 +3406,9 @@ function openRacePP(raceNum){
 
 function openDecisionHorse(id,raceNum){
     showTab("card");
-    setRaceCardView("full");
+    setRaceCardView("live");
 
-    const raceCard=document.getElementById(`race-full-${raceNum}`);
+    const raceCard=document.getElementById(`race-live-${raceNum}`);
     if(raceCard){
         raceCard.scrollIntoView({behavior:"smooth",block:"start"});
     }
@@ -3401,7 +3470,7 @@ function computeRaceCard(){
 
             cardHTML += `
 
-            <div class="race-card">
+            <div class="race-card race-anchor-target">
 
                 <h3>
                     Race ${safe(raceNum)}
@@ -3474,14 +3543,14 @@ function computeRaceCard(){
 
         bestHTML += `
 
-        <div class="best-pick">
+        <div class="best-pick race-anchor-target" id="decision-race-${safe(raceNum)}">
 
             <div class="best-header">
 
                 <div>
 
                     <div class="best-race">
-                        RACE ${safe(raceNum)}
+                        <span class="race-number-link" onclick="jumpToRace('decision','${safe(raceNum)}',null)">RACE ${safe(raceNum)}</span>
                     </div>
 
                     <div class="best-horse">
@@ -3676,8 +3745,8 @@ function computeRaceCard(){
         const multiTrainers=Object.keys(trainerCounts).filter(k=>trainerCounts[k]>1);
 
         analysisHTML += `
-        <div class="analysis-card">
-          <h3>Race ${safe(raceNum)} — Contenders / Questionable / Pretenders</h3>
+        <div class="analysis-card race-anchor-target" id="contenders-race-${safe(raceNum)}">
+          <h3><span class="race-number-link" onclick="jumpToRace('contenders','${safe(raceNum)}',null)">Race ${safe(raceNum)}</span> — Contenders / Questionable / Pretenders</h3>
           ${multiTrainers.length ? `<div class="warning-box"><b>TRAINER MULTIPLE ENTRY:</b> ${multiTrainers.map(k=>{const h=activeField.find(x=>normalizeName(x.trainer)===k);return safe(h?h.trainer:k);}).join(', ')}</div>` : ''}
           <div class="analysis-grid">
             <div class="analysis-box contender"><h4>Contenders (${contenders.length})</h4>
@@ -3719,6 +3788,7 @@ function computeRaceCard(){
 
             </p>
 
+            ${raceJumpNavHTML(raceKeys,"decision")}
             ${bestHTML}
 
         </div>
@@ -3729,9 +3799,10 @@ function computeRaceCard(){
     $("cardSection").innerHTML = `
         <h2>Full Race Cards</h2>
         <p class="note"><b>FULL FIELD</b> keeps every runner. <b>LIVE FIELD</b> removes only horses that earned Pretender status from negative past-performance evidence. First-time starters and uncertain horses remain as Questionable.</p>
-        <div class="field-view-toggle"><button class="on" data-view="full" onclick="setRaceCardView('full')">FULL FIELD</button><button data-view="live" onclick="setRaceCardView('live')">LIVE FIELD — HIDE PRETENDERS</button></div>
-        <div id="fullFieldView">${cardHTML}</div>
-        <div id="liveFieldView" style="display:none">${liveCardHTML}</div>
+        <div class="field-view-toggle"><button data-view="full" onclick="setRaceCardView('full')">FULL FIELD</button><button class="on" data-view="live" onclick="setRaceCardView('live')">LIVE FIELD — HIDE PRETENDERS</button></div>
+        ${raceJumpNavHTML(raceKeys,"race")}
+        <div id="fullFieldView" style="display:none">${cardHTML}</div>
+        <div id="liveFieldView">${liveCardHTML}</div>
     `;
 
 
@@ -3741,6 +3812,7 @@ function computeRaceCard(){
             Contenders / Questionable / Pretenders
         </h2>
 
+        ${raceJumpNavHTML(raceKeys,"contenders")}
         ${analysisHTML}
 
     `;
@@ -4811,6 +4883,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.6 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.7 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
