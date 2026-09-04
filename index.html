@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.8 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.9 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -721,7 +721,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.8</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.9</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -3245,7 +3245,7 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
     return `
     <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
-      <h3><span class="race-number-link" onclick="goToRaceCard('${safe(raceNum)}')" title="Go to this race">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
+      <h3><span class="race-number-link" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for all horses in the selected field view">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
       <div class="table-wrap"><table class="compact-table"><thead><tr>
         <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Class</th>
       </tr></thead><tbody>
@@ -4840,6 +4840,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.8 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.9 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
