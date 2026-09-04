@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.4 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.5 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -708,7 +708,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.4</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.5</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -955,6 +955,7 @@ let rowId = 1;
 let computedRaces = {};
 let trackConditions = {};
 let probabilityDetails = {};
+let raceCardView = "full";
 
 
 /* ============================================================
@@ -3196,7 +3197,7 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
     return `
     <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
-      <h3>Race ${safe(raceNum)} — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
+      <h3><span style="cursor:pointer;text-decoration:underline dotted;" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for this entire race">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
       <div class="table-wrap"><table class="compact-table"><thead><tr>
         <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Class</th>
       </tr></thead><tbody>
@@ -3218,12 +3219,86 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
 }
 
 function setRaceCardView(view){
+    raceCardView = view === "live" ? "live" : "full";
     const full=$("fullFieldView"), live=$("liveFieldView");
     if(!full || !live) return;
-    const isLive=view==="live";
+    const isLive=raceCardView==="live";
     full.style.display=isLive?"none":"block";
     live.style.display=isLive?"block":"none";
     document.querySelectorAll(".field-view-toggle button").forEach(b=>b.classList.toggle("on",b.dataset.view===view));
+}
+
+function renderRaceHorsePP(horse){
+    const races=(horse.ppRaces || []);
+    const works=(horse.ppWorks || []);
+    return `
+      <div style="margin:18px 0 8px;padding-top:12px;border-top:2px solid var(--line);">
+        <h3 style="margin:0 0 8px;font-size:17px;">
+          #${safe(horse.post)} ${safe(horse.horse)}
+          ${horse.scratched ? '<span class="badge badge-red">SCRATCHED</span>' : ''}
+          ${horse.jockeyChanged ? '<span class="badge badge-red">JOCKEY CHANGED</span>' : ''}
+        </h3>
+        <div style="font-family:var(--mono);font-size:11px;line-height:1.6;margin-bottom:8px;">
+          Prime Power: <b>${safe(horse.score || horse.primePower || "N/A")}</b>
+          &nbsp; | &nbsp; Current Speed: <b>${safe(horse.lastSpeed || "N/A")}</b>
+          &nbsp; | &nbsp; Trainer: <b>${safe(horse.trainer || "N/A")}</b>
+          &nbsp; | &nbsp; Jockey: <b>${safe(horse.jockey || "N/A")}</b>
+        </div>
+        ${races.length ? `
+        <div class="table-wrap">
+          <table class="pp-table">
+            <thead><tr>
+              <th>Date</th><th>Track</th><th>Race</th><th>Distance</th><th>Surface</th><th>Post</th><th>Finish</th><th>Win</th><th>Place</th><th>Show</th><th>Speed</th><th>Comment</th>
+            </tr></thead>
+            <tbody>
+              ${races.map(p=>`<tr>
+                <td>${safe(formatDate(p.date))}</td>
+                <td>${safe(p.track)}</td>
+                <td>${safe(p.raceNum)}</td>
+                <td>${safe(formatDistance(p.dist))}</td>
+                <td>${safe(p.surf)}</td>
+                <td>${safe(p.post)}</td>
+                <td>${safe(p.fin)}</td>
+                <td>${renderPPFinisher(p.winner,p,horse,"Win")}</td>
+                <td>${renderPPFinisher(p.placeHorse,p,horse,"Place")}</td>
+                <td>${renderPPFinisher(p.showHorse,p,horse,"Show")}</td>
+                <td><b>${safe(p.speed)}</b></td>
+                <td>${safe(p.comment)}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>` : '<div class="note">No usable past-performance races available.</div>'}
+        ${works.length ? `
+          <div style="margin-top:10px;font-weight:800;font-size:11px;text-transform:uppercase;">Recent Workouts</div>
+          <div class="work-grid">
+            ${works.map(w=>`<div class="work-item"><b>${safe(w.date)}</b> — ${safe(w.track)}<br>Time: <b>${safe(w.time || "N/A")}</b>${w.description ? ` (${safe(w.description)})` : ''}</div>`).join("")}
+          </div>` : ''}
+      </div>`;
+}
+
+function openRacePP(raceNum){
+    const field=(computedRaces[String(raceNum)] || []).slice().sort((a,b)=>number(a.post)-number(b.post));
+    if(!field.length) return;
+
+    const activeField=field.filter(h=>!h.scratched);
+    const scored=activeField.length ? calculateProbabilities(activeField) : [];
+    const classMap={};
+    scored.forEach(item=>{ classMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
+
+    const liveOnly=raceCardView==="live";
+    const shown=liveOnly
+        ? field.filter(h=>h.scratched || !classMap[h.id] || classMap[h.id].label!=="PRETENDER")
+        : field;
+
+    $("ppContent").innerHTML = `
+      <h2 style="margin-right:30px;font-size:20px;">Race ${safe(raceNum)} — ${liveOnly ? "Live Field Past Performances" : "Full Field Past Performances"}</h2>
+      <div class="note" style="margin-bottom:10px;">
+        ${liveOnly ? "Showing Contenders and Questionable / Live Longshots; Pretenders are hidden." : "Showing every runner in the field."}
+        Tap a horse name on the Race Card when you want only that horse's Past Performances.
+      </div>
+      ${shown.map(renderRaceHorsePP).join("")}
+    `;
+    $("ppOverlay").classList.add("show");
 }
 
 function openDecisionHorse(id,raceNum){
@@ -4702,6 +4777,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.4 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.5 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
