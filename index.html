@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.0 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.1 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -675,6 +675,16 @@ tbody input:focus{
   border-bottom:1px solid var(--paper-line);
 }
 
+.pp-h2h-beater{
+  font-weight:900;
+  text-decoration:underline;
+  text-decoration-thickness:1px;
+}
+
+.pp-current-runner{
+  font-weight:700;
+}
+
 .work-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
@@ -698,7 +708,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.0</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.1</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -1695,7 +1705,10 @@ function loadDRF(text){
                     purse:getNumber(fields,556+i),
                     classRating:0,
                     raceRating:0,
-                    comment:getField(fields,396+i)
+                    comment:getField(fields,396+i),
+                    winner:getField(fields,406+i),
+                    placeHorse:getField(fields,416+i),
+                    showHorse:getField(fields,426+i)
                 });
             }
 
@@ -4249,6 +4262,63 @@ function renderH2HHorse(horse){
    PP MODAL
 ============================================================ */
 
+function ppSamePriorRace(a,b){
+    return h2hNorm(a && a.date) === h2hNorm(b && b.date) &&
+           h2hNorm(a && a.raceNum) === h2hNorm(b && b.raceNum);
+}
+
+function ppTodayRunnerByName(name,horse){
+    const key = normalizeName(name || "");
+    if(!key) return null;
+
+    return rows.find(r=>
+        !r.scratched &&
+        String(r.race) === String(horse.race) &&
+        normalizeName(r.horse) === key
+    ) || null;
+}
+
+function ppHorseBeatCurrentRunner(namedHorse,pp,horse){
+    const named = ppTodayRunnerByName(namedHorse,horse);
+    if(!named) return false;
+
+    const namedPrior = (named.ppRaces || []).find(otherPP=>ppSamePriorRace(pp,otherPP));
+    if(!namedPrior) return false;
+
+    const namedFinish = h2hFinishNumber(namedPrior.fin);
+    if(namedFinish === null) return false;
+
+    return rows.some(other=>{
+        if(other.scratched || String(other.race) !== String(horse.race) || other.id === named.id){
+            return false;
+        }
+        const otherPrior = (other.ppRaces || []).find(otherPP=>ppSamePriorRace(pp,otherPP));
+        if(!otherPrior) return false;
+        const otherFinish = h2hFinishNumber(otherPrior.fin);
+        return otherFinish !== null && namedFinish < otherFinish;
+    });
+}
+
+function renderPPFinisher(name,pp,horse,label){
+    const value = String(name || "").trim();
+    if(!value) return '<span style="opacity:.55">-</span>';
+
+    const isToday = !!ppTodayRunnerByName(value,horse);
+    const beatToday = isToday && ppHorseBeatCurrentRunner(value,pp,horse);
+    const title = beatToday
+        ? 'H2H: this horse beat another runner entered in today’s race'
+        : isToday
+        ? 'Also entered in today’s race'
+        : '';
+
+    const rendered = safe(value);
+    return beatToday
+        ? `<strong class="pp-h2h-beater" title="${safe(title)}">${rendered}</strong>`
+        : isToday
+        ? `<span class="pp-current-runner" title="${safe(title)}">${rendered}</span>`
+        : rendered;
+}
+
 function openPP(id){
 
     const horse =
@@ -4371,6 +4441,10 @@ function openPP(id){
 
     </div>
 
+    <div class="note" style="margin:-2px 0 8px;">
+        Win / Place / Show names are shown for each prior race. <b>Bold names</b> identify a horse entered today that beat another current runner in that same prior race (matched by date + race number).
+    </div>
+
 
     <div class="table-wrap">
 
@@ -4386,6 +4460,9 @@ function openPP(id){
         <th>Distance</th>
         <th>Surface</th>
         <th>Finish</th>
+        <th>Win</th>
+        <th>Place</th>
+        <th>Show</th>
         <th>Speed</th>
         <th>Comment</th>
 
@@ -4429,6 +4506,18 @@ function openPP(id){
 
             <td>
                 ${safe(p.fin)}
+            </td>
+
+            <td>
+                ${renderPPFinisher(p.winner,p,horse,"Win")}
+            </td>
+
+            <td>
+                ${renderPPFinisher(p.placeHorse,p,horse,"Place")}
+            </td>
+
+            <td>
+                ${renderPPFinisher(p.showHorse,p,horse,"Show")}
             </td>
 
             <td>
@@ -4560,6 +4649,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.0 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.1 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
