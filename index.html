@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.5 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.6 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -708,7 +708,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.5</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v6.6</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -1057,6 +1057,7 @@ function newRow(partial = {}){
         runStyle:"",
         speedPoints:0,
         currentTrack:"",
+        currentRaceDate:"",
         currentSurface:"",
         currentTrackCondition:"",
         currentDistance:0,
@@ -1753,6 +1754,7 @@ function loadDRF(text){
                 shows:getNumber(fields,100),
 
                 currentTrack:getField(fields,1),
+                currentRaceDate:formatDate(getField(fields,2)),
                 currentSurface:getField(fields,7),
                 currentTrackCondition:"",
                 currentDistance:getNumber(fields,6),
@@ -2642,8 +2644,40 @@ function formScore(horse){
     return weightTotal ? total/weightTotal : .5;
 }
 
+
+function parseDisplayDate(value){
+    const s=String(value || "").trim();
+    let m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if(m) return new Date(Number(m[3]),Number(m[1])-1,Number(m[2]));
+    m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if(m) return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
+    const d=new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function eligibleWorkouts(horse){
+    const raceDate=parseDisplayDate(horse.currentRaceDate);
+    const works=(horse.ppWorks || []).slice();
+
+    const dated=works.map(w=>({w,date:parseDisplayDate(w.date)}))
+        .filter(x=>x.date);
+
+    let qualifying;
+    if(raceDate){
+        qualifying=dated.filter(x=>{
+            const days=(raceDate-x.date)/(1000*60*60*24);
+            return days>=0 && days<=30;
+        });
+    }else{
+        qualifying=dated;
+    }
+
+    qualifying.sort((a,b)=>b.date-a.date);
+    return qualifying.slice(0,4).map(x=>x.w);
+}
+
 function workoutScore(horse){
-    const works=(horse.ppWorks||[]).slice(0,5);
+    const works=eligibleWorkouts(horse);
     if(!works.length) return .5;
 
     let score=.5;
@@ -3230,7 +3264,7 @@ function setRaceCardView(view){
 
 function renderRaceHorsePP(horse){
     const races=(horse.ppRaces || []);
-    const works=(horse.ppWorks || []);
+    const works=eligibleWorkouts(horse);
     return `
       <div style="margin:18px 0 8px;padding-top:12px;border-top:2px solid var(--line);">
         <h3 style="margin:0 0 8px;font-size:17px;">
@@ -3269,7 +3303,7 @@ function renderRaceHorsePP(horse){
           </table>
         </div>` : '<div class="note">No usable past-performance races available.</div>'}
         ${works.length ? `
-          <div style="margin-top:10px;font-weight:800;font-size:11px;text-transform:uppercase;">Recent Workouts</div>
+          <div style="margin-top:10px;font-weight:800;font-size:11px;text-transform:uppercase;">Recent Workouts — up to 4 within 30 days of race</div>
           <div class="work-grid">
             ${works.map(w=>`<div class="work-item"><b>${safe(w.date)}</b> — ${safe(w.track)}<br>Time: <b>${safe(w.time || "N/A")}</b>${w.description ? ` (${safe(w.description)})` : ''}</div>`).join("")}
           </div>` : ''}
@@ -4678,7 +4712,7 @@ function openPP(id){
         text-transform:uppercase;
     ">
 
-        Recent Workouts
+        Recent Workouts — up to 4 within 30 days of race
 
     </div>
 
@@ -4686,7 +4720,7 @@ function openPP(id){
     <div class="work-grid">
 
     ${
-        (horse.ppWorks || [])
+        eligibleWorkouts(horse)
         .map(w=>`
 
         <div class="work-item">
@@ -4777,6 +4811,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.5 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.6 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
