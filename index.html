@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.2 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.4 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -3195,16 +3195,16 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     const ordered=[...field].sort((a,b)=>number(a.post)-number(b.post));
     const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
     return `
-    <div class="race-card">
+    <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
       <h3>Race ${safe(raceNum)} — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
       <div class="table-wrap"><table class="compact-table"><thead><tr>
-        <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>${liveOnly ? "Class" : "Status"}</th>
+        <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Class</th>
       </tr></thead><tbody>
       ${shown.map(h=>{
           const item=scored.find(x=>x.horse.id===h.id);
           const cls=classMap[h.id];
           const multi=trainerCounts[normalizeName(h.trainer)]>1;
-          const status=h.scratched ? '<span class="badge badge-red">SCRATCHED</span>' : liveOnly && cls ? `<span class="badge ${cls.label==="QUESTIONABLE" ? "badge-blue" : ""}">${cls.label}</span>` : '';
+          const status=h.scratched ? '<span class="badge badge-red">SCRATCHED</span>' : cls ? `<span class="badge ${cls.label==="QUESTIONABLE" ? "badge-blue" : ""}">${cls.label}</span>` : '';
           return `<tr class="${h.scratched?'scratched-row':''}">
             <td>${safe(h.post)}</td>
             <td><span style="font-weight:700;cursor:pointer;text-decoration:underline dotted;" onclick="openPP(${h.id})">${safe(h.horse)}</span>${h.jockeyChanged?'<span class="badge badge-red">NEW RIDER</span>':''}${multi?'<span class="trainer-multi">TRAINER MULTIPLE</span>':''}</td>
@@ -3224,6 +3224,19 @@ function setRaceCardView(view){
     full.style.display=isLive?"none":"block";
     live.style.display=isLive?"block":"none";
     document.querySelectorAll(".field-view-toggle button").forEach(b=>b.classList.toggle("on",b.dataset.view===view));
+}
+
+function openDecisionHorse(id,raceNum){
+    showTab("card");
+    setRaceCardView("full");
+
+    const raceCard=document.getElementById(`race-full-${raceNum}`);
+    if(raceCard){
+        raceCard.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+
+    // Open the selected runner's complete Past Performances after the Full Field is shown.
+    setTimeout(()=>openPP(id),180);
 }
 
 function computeRaceCard(){
@@ -3365,7 +3378,7 @@ function computeRaceCard(){
                     <div class="best-horse">
 
                         #${safe(top.horse.post)}
-                        ${safe(top.horse.horse)}
+                        <span style="cursor:pointer;text-decoration:underline dotted;" onclick="openDecisionHorse(${top.horse.id},'${safe(raceNum)}')" title="Open Full Field and complete Past Performances">${safe(top.horse.horse)}</span>
 
                         <span class="badge">
                             TOP PICK
@@ -3559,7 +3572,7 @@ function computeRaceCard(){
           ${multiTrainers.length ? `<div class="warning-box"><b>TRAINER MULTIPLE ENTRY:</b> ${multiTrainers.map(k=>{const h=activeField.find(x=>normalizeName(x.trainer)===k);return safe(h?h.trainer:k);}).join(', ')}</div>` : ''}
           <div class="analysis-grid">
             <div class="analysis-box contender"><h4>Contenders (${contenders.length})</h4>
-              ${contenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b><br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None.</div>'}
+              ${contenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b><br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span>${renderContenderPastPerformances(item.horse)}</div>`).join('') || '<div class="analysis-item">None.</div>'}
             </div>
             <div class="analysis-box questionable"><h4>Questionable / Live Longshots (${questionable.length})</h4>
               ${questionable.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b><br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None.</div>'}
@@ -3593,6 +3606,7 @@ function computeRaceCard(){
                 starters, or a changed track condition with no matching speed
                 evidence. PRICE CANDIDATE means model rank #1 is morning-line
                 rank #3 or higher; it is a review flag, not a proven edge.
+                Tap the horse name to jump to that race's Full Field and open the horse's complete Past Performances.
 
             </p>
 
@@ -4319,6 +4333,40 @@ function renderPPFinisher(name,pp,horse,label){
         : rendered;
 }
 
+function renderContenderPastPerformances(horse){
+    const races=(horse.ppRaces || []);
+    if(!races.length){
+        return `<div class="note" style="margin-top:8px;">No usable past-performance races available.</div>`;
+    }
+
+    return `
+    <div style="margin-top:10px;font-weight:800;font-size:11px;text-transform:uppercase;">Full Past Performances</div>
+    <div class="table-wrap" style="margin-top:6px;">
+      <table class="pp-table">
+        <thead><tr>
+          <th>Date</th><th>Track</th><th>Race</th><th>Distance</th><th>Surface</th><th>Post</th><th>Finish</th><th>Win</th><th>Place</th><th>Show</th><th>Speed</th><th>Comment</th>
+        </tr></thead>
+        <tbody>
+          ${races.map(p=>`
+            <tr>
+              <td>${safe(formatDate(p.date))}</td>
+              <td>${safe(p.track)}</td>
+              <td>${safe(p.raceNum)}</td>
+              <td>${safe(formatDistance(p.dist))}</td>
+              <td>${safe(p.surf)}</td>
+              <td>${safe(p.post)}</td>
+              <td>${safe(p.fin)}</td>
+              <td>${renderPPFinisher(p.winner,p,horse,"Win")}</td>
+              <td>${renderPPFinisher(p.placeHorse,p,horse,"Place")}</td>
+              <td>${renderPPFinisher(p.showHorse,p,horse,"Show")}</td>
+              <td><b>${safe(p.speed)}</b></td>
+              <td>${safe(p.comment)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 function openPP(id){
 
     const horse =
@@ -4654,6 +4702,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.2 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.4 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
