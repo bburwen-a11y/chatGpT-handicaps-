@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v6.1 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v6.2 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -4459,6 +4459,7 @@ function openPP(id){
         <th>Race</th>
         <th>Distance</th>
         <th>Surface</th>
+        <th>Post</th>
         <th>Finish</th>
         <th>Win</th>
         <th>Place</th>
@@ -4502,6 +4503,10 @@ function openPP(id){
 
             <td>
                 ${safe(p.surf)}
+            </td>
+
+            <td>
+                ${safe(p.post)}
             </td>
 
             <td>
@@ -4649,6 +4654,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.1 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v6.2 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
