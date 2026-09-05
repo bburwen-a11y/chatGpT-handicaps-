@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.1 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.2 · September 5,2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -744,6 +744,33 @@ tbody input:focus{
     letter-spacing:.06em;
   }
 
+
+  .race-quality{
+    margin-top:10px;
+    padding:11px 12px;
+    border-radius:5px;
+    border:1px solid #9ca3af;
+    font-size:12.5px;
+    line-height:1.5;
+  }
+  .race-quality.rq-strong{border-color:#1f6b3a;background:#eef8f1;}
+  .race-quality.rq-standard{border-color:#527a5d;background:#f4f8f5;}
+  .race-quality.rq-caution{border-color:#b98222;background:#fff8e6;}
+  .race-quality.rq-pass{border-color:#9b4b42;background:#fff1ef;}
+  .rq-tag{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:10px;
+    margin-right:7px;
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:.05em;
+  }
+  .rq-strong .rq-tag{background:#1f6b3a;color:#fff;}
+  .rq-standard .rq-tag{background:#527a5d;color:#fff;}
+  .rq-caution .rq-tag{background:#b98222;color:#fff;}
+  .rq-pass .rq-tag{background:#9b4b42;color:#fff;}
+
 </style>
 </head>
 
@@ -753,7 +780,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.1</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.2</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -3096,6 +3123,7 @@ function openProbability(raceNum){
       <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
       <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
       ${d.historical ? `<div class="metric-line"><b>Historical confirmation:</b> ${safe(d.historical.level==="strong" ? "STRONG — " + d.historical.text : d.historical.text)}</div>` : ""}
+      ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
       ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
       <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Backtesting showed that higher v5.0 percentages did not produce a comparable increase in win rate. Use it for ranking, not as a betting edge or fair odds.</div>
     `;
@@ -3202,6 +3230,95 @@ function historicalConsensus(field, modelTopHorse){
         fav,
         text:`No historical confidence upgrade. Morning-line favorite #${fav.post || "?"} ${fav.horse} is #1 on ${agreements} of 4 ranking checks${priceOK ? "" : ` and is above the 5/2 historical price cut`}.`
     };
+}
+
+
+/*
+RACE BET QUALITY — v7.2
+Historical test bed: paired_final6.csv, 196 races.
+
+The race-quality layer does NOT change horse scores or classifications.
+It asks a different question: has this TYPE of race been comparatively
+predictable when the existing 3-of-4 historical consensus signal fires?
+
+Measured results used here:
+  base 3-of-4 consensus:                 30/57 = 52.6%
+  consensus + no first-time starter:    23/37 = 62.2%
+  consensus + field <= 9:               28/50 = 56.0%
+  consensus + no FTS + field <= 9:      22/34 = 64.7%
+  consensus + ML <= 2/1 + no FTS:       20/31 = 64.5%
+
+The strongest no-FTS / <=9 pattern also held in a crude chronological
+split: 16/24 early and 6/10 later. These are historical sample rates,
+not guaranteed future probabilities.
+*/
+function isFirstTimeStarterForQuality(h){
+    const usable=(h.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
+    return usable.length===0;
+}
+
+function raceBetQuality(field, modelTopHorse){
+    const active=(field || []).filter(h=>!h.scratched);
+    const hist=historicalConsensus(active, modelTopHorse);
+    const fieldSize=active.length;
+    const ftsCount=active.filter(isFirstTimeStarterForQuality).length;
+
+    if(hist.level!=="strong"){
+        return {
+            level:"pass",
+            label:"PASS / REVIEW",
+            fieldSize, ftsCount,
+            text:"The tested 3-of-4 historical consensus does not agree with the model pick, so this race does not qualify for a historical bet-quality upgrade."
+        };
+    }
+
+    if(ftsCount===0 && fieldSize<=9){
+        return {
+            level:"strong",
+            label:"BET — STRONG",
+            fieldSize, ftsCount,
+            text:`Best tested race profile: 3-of-4 consensus, no first-time starters, and ${fieldSize} runners. This combination won 22 of 34 historical tests (64.7%).`
+        };
+    }
+
+    if(ftsCount>0 && fieldSize>=10){
+        return {
+            level:"pass",
+            label:"PASS / CAUTION",
+            fieldSize, ftsCount,
+            text:`Consensus is present, but this field has ${ftsCount} first-time starter${ftsCount===1?"":"s"} and ${fieldSize} runners. Both conditions reduced historical reliability; do not treat the horse's paper advantage as maximum confidence.`
+        };
+    }
+
+    if(ftsCount>0){
+        return {
+            level:"caution",
+            label:"CAUTION — FTS",
+            fieldSize, ftsCount,
+            text:`Consensus is present, but ${ftsCount} first-time starter${ftsCount===1?" is":"s are"} in the race. In the paired history, consensus picks won 35.0% when an FTS was present versus 62.2% when none were present.`
+        };
+    }
+
+    if(fieldSize>=10){
+        return {
+            level:"caution",
+            label:"CAUTION — LARGE FIELD",
+            fieldSize, ftsCount,
+            text:`Consensus is present, but the field has ${fieldSize} runners. Consensus picks were 2-for-7 (28.6%) in fields of 10 or more in this sample; small sample, so treat this as caution rather than a hard elimination.`
+        };
+    }
+
+    return {
+        level:"standard",
+        label:"BET — STANDARD",
+        fieldSize, ftsCount,
+        text:"The historical consensus signal is present, but the race does not meet every condition of the strongest tested profile."
+    };
+}
+
+function raceBetQualityHTML(field, modelTopHorse){
+    const q=raceBetQuality(field,modelTopHorse);
+    return `<div class="race-quality rq-${q.level}"><span class="rq-tag">${safe(q.label)}</span>${safe(q.text)} <b>Historical sample rates are not calibrated win probabilities.</b></div>`;
 }
 
 function historicalConsensusHTML(field, modelTopHorse){
@@ -3637,7 +3754,8 @@ function computeRaceCard(){
             pass:passFlag,
             decision,
             marketRank,
-            historical:historicalConsensus(activeField,top.horse)
+            historical:historicalConsensus(activeField,top.horse),
+            raceQuality:raceBetQuality(activeField,top.horse)
         };
 
 
@@ -3768,6 +3886,7 @@ function computeRaceCard(){
 
 
             ${historicalConsensusHTML(activeField, top.horse)}
+            ${raceBetQualityHTML(activeField, top.horse)}
 
 
             <div class="reason-box">
@@ -4989,6 +5108,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.1 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.2 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
