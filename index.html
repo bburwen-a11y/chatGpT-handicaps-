@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.0 · September 3, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.1 · September 3, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -712,6 +712,38 @@ tbody input:focus{
   .race-number-link:hover{ background:#e5e7eb; }
   .race-anchor-target{ scroll-margin-top:80px; }
 
+
+  .hist-confirm{
+    margin-top:10px;
+    padding:10px 12px;
+    border-radius:4px;
+    border:1px solid #2E6E45;
+    background:rgba(46,110,69,.08);
+    font-size:12.5px;
+    line-height:1.55;
+  }
+  .hist-confirm b{color:#1F5231;}
+  .hist-confirm.neutral{
+    border-color:#CFC2A0;
+    background:rgba(0,0,0,.025);
+    color:#4A4433;
+  }
+  .hist-confirm.warn{
+    border-color:#C08A2E;
+    background:#FFF8E6;
+  }
+  .hist-tag{
+    display:inline-block;
+    margin-right:7px;
+    padding:2px 7px;
+    border-radius:10px;
+    background:#2E6E45;
+    color:white;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.06em;
+  }
+
 </style>
 </head>
 
@@ -721,7 +753,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.0</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.1</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -3063,6 +3095,7 @@ function openProbability(raceNum){
       <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
       <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
       <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
+      ${d.historical ? `<div class="metric-line"><b>Historical confirmation:</b> ${safe(d.historical.level==="strong" ? "STRONG — " + d.historical.text : d.historical.text)}</div>` : ""}
       ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
       <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Backtesting showed that higher v5.0 percentages did not produce a comparable increase in win rate. Use it for ranking, not as a betting edge or fair odds.</div>
     `;
@@ -3076,6 +3109,111 @@ $("probOverlay").addEventListener("click",e=>{if(e.target===$("probOverlay")) $(
 /* ============================================================
    EXPLANATION
 ============================================================ */
+
+
+/*
+HISTORICAL CONSENSUS CONFIRMATION
+Measured on paired_final6.csv: 196 races, 1,459 runners, four tracks.
+This is NOT a replacement model and is NOT a calibrated probability.
+
+A morning-line favorite at 5/2 or shorter that ranked #1 on at least
+3 of these 4 measures:
+  1) Prime Power
+  2) last-race speed
+  3) best speed
+  4) average of the last 3 usable BRIS speed figures
+won 30 of 57 (52.6%) in the full sample. When it also remained the
+post-time favorite, it won 25 of 45 (55.6%). The current Horse Handicap
+file carries morning line but not a separate live-final-odds column, so
+the in-app badge uses the pre-race portion only.
+
+Use this as a confidence confirmation only when it AGREES with the
+existing model top pick. It never overrides the model or creates a
+Pretender.
+*/
+function avg3RaceSpeed(horse){
+    const vals=(horse.ppRaces || [])
+        .slice(0,3)
+        .map(r=>number(r.speed))
+        .filter(v=>v>0);
+    if(vals.length) return vals.reduce((a,b)=>a+b,0)/vals.length;
+    return number(horse.lastSpeed);
+}
+
+function fieldTopHorse(field, selector){
+    const valid=(field || [])
+        .map(h=>({h,v:number(selector(h))}))
+        .filter(x=>x.v>0);
+    if(!valid.length) return null;
+    const best=Math.max(...valid.map(x=>x.v));
+    const ties=valid.filter(x=>x.v===best).map(x=>x.h);
+    return {best,ties};
+}
+
+function isTopOn(horse,field,selector){
+    const t=fieldTopHorse(field,selector);
+    return !!(t && t.ties.some(h=>h.id===horse.id));
+}
+
+function historicalConsensus(field, modelTopHorse){
+    const priced=(field || [])
+        .map(h=>({h,o:oddsDecimal(h.odds)}))
+        .filter(x=>x.o!==null && x.o>=0)
+        .sort((a,b)=>a.o-b.o);
+
+    if(!priced.length){
+        return {level:"none",agreements:0,text:"No morning line available for historical confirmation."};
+    }
+
+    const fav=priced[0].h;
+    const favOdds=priced[0].o;
+    const checks=[
+        {name:"Prime Power", ok:isTopOn(fav,field,h=>number(h.score || h.primePower))},
+        {name:"last speed", ok:isTopOn(fav,field,h=>number(h.lastSpeed))},
+        {name:"best speed", ok:isTopOn(fav,field,h=>number(h.bestSpeed))},
+        {name:"3-race average speed", ok:isTopOn(fav,field,h=>avg3RaceSpeed(h))}
+    ];
+    const agreements=checks.filter(x=>x.ok).length;
+    const topNames=checks.filter(x=>x.ok).map(x=>x.name);
+    const modelAgrees=!!(modelTopHorse && fav.id===modelTopHorse.id);
+    const priceOK=favOdds<=2.5;
+
+    if(priceOK && agreements>=3 && modelAgrees){
+        return {
+            level:"strong",
+            agreements,
+            fav,
+            text:`Historical confirmation: model and morning-line favorite agree, M/L ${fav.odds}, and this horse is #1 on ${agreements} of 4 independent ranking checks (${topNames.join(", ")}). In the 196-race paired file, this pre-race pattern won 30 of 57 races (52.6%).`
+        };
+    }
+
+    if(priceOK && agreements>=3 && !modelAgrees){
+        return {
+            level:"disagree",
+            agreements,
+            fav,
+            text:`Historical signal points to #${fav.post || "?"} ${fav.horse}: M/L ${fav.odds}, #1 on ${agreements} of 4 ranking checks, but the current model ranks another horse first. No confidence upgrade — review both.`
+        };
+    }
+
+    return {
+        level:"none",
+        agreements,
+        fav,
+        text:`No historical confidence upgrade. Morning-line favorite #${fav.post || "?"} ${fav.horse} is #1 on ${agreements} of 4 ranking checks${priceOK ? "" : ` and is above the 5/2 historical price cut`}.`
+    };
+}
+
+function historicalConsensusHTML(field, modelTopHorse){
+    const h=historicalConsensus(field,modelTopHorse);
+    if(h.level==="strong"){
+        return `<div class="hist-confirm"><span class="hist-tag">BET CONFIDENCE</span><b>STRONG HISTORICAL AGREEMENT.</b> ${safe(h.text)}</div>`;
+    }
+    if(h.level==="disagree"){
+        return `<div class="hist-confirm warn"><span class="hist-tag">CHECK</span><b>MODEL / HISTORICAL DISAGREEMENT.</b> ${safe(h.text)}</div>`;
+    }
+    return `<div class="hist-confirm neutral"><b>Historical confirmation:</b> ${safe(h.text)}</div>`;
+}
 
 function buildReason(top,second,field){
 
@@ -3498,7 +3636,8 @@ function computeRaceCard(){
             quality,
             pass:passFlag,
             decision,
-            marketRank
+            marketRank,
+            historical:historicalConsensus(activeField,top.horse)
         };
 
 
@@ -3626,6 +3765,9 @@ function computeRaceCard(){
                 &nbsp; | &nbsp;
                 Morning-line rank: <b>${marketRank || "N/A"}</b>
             </div>
+
+
+            ${historicalConsensusHTML(activeField, top.horse)}
 
 
             <div class="reason-box">
@@ -4847,6 +4989,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.0 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.1 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
