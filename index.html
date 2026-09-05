@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.2 · September 5,2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.3 · September 3, 2026 — iPhone / Safari — September 5, 2026</title>
 
 <style>
 :root{
@@ -780,7 +780,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.2</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.3</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari.
 </p>
@@ -3113,6 +3113,47 @@ function getConfidence(top,second){
 
 }
 
+
+/* v7.3 calibrated confidence — September 5, 2026.
+   Ranking is unchanged; this is the displayed historical win estimate.
+   Race number is not used: exact consensus was 52.6% in R1–3 and 52.6% in R4+ historically. */
+function calibratedWinEstimate(field, topHorse){
+    const active=(field||[]).filter(h=>!h.scratched);
+    if(!topHorse||!active.length) return {pct:null,label:"NO ESTIMATE",basis:""};
+    const hist=historicalConsensus(active,topHorse);
+    const n=active.length;
+    const fts=active.filter(isFirstTimeStarterForQuality).length;
+    let pct=35.7,label="NO HISTORICAL UPGRADE",
+        basis="No validated 3-of-4 consensus upgrade; using the 35.7% historical favorite baseline instead of raw score separation.";
+    if(hist.level==="strong"){
+        pct=52.6; label="CONSENSUS";
+        basis="3-of-4 consensus: 30 wins from 57 historical tests.";
+        if(fts===0 && n<=9){
+            pct=64.7; label="STRONG PROFILE";
+            basis="Consensus + no first-time starters + field of 9 or fewer: 22/34 historical wins.";
+        }else if(fts===0){
+            pct=62.2; label="NO-FTS PROFILE";
+            basis="Consensus + no first-time starters: 23/37 historical wins.";
+        }else{
+            pct=35.0; label="FTS CAUTION";
+            basis="Consensus with at least one first-time starter: 7/20 historical wins.";
+        }
+        if(n>=10){
+            pct=28.6; label="LARGE-FIELD CAUTION";
+            basis="Consensus in fields of 10 or more: 2/7 historical wins; small sample.";
+        }
+    }
+    return {pct,label,basis,fieldSize:n,ftsCount:fts};
+}
+function calibratedProbabilityHTML(field,topHorse){
+    const c=calibratedWinEstimate(field,topHorse);
+    if(c.pct==null)return "";
+    const warn=(c.label.includes("CAUTION")||c.label==="NO HISTORICAL UPGRADE")?" warn":"";
+    return `<div class="hist-confirm${warn}"><span class="hist-tag">HISTORICAL WIN ESTIMATE</span>
+      <b>${c.pct.toFixed(1)}%</b> · ${safe(c.label)}
+      <div style="margin-top:5px">${safe(c.basis)} <b>Historical sample rate, not a guaranteed probability.</b></div></div>`;
+}
+
 function openProbability(raceNum){
     const d=probabilityDetails[String(raceNum)];
     if(!d) return;
@@ -3124,6 +3165,7 @@ function openProbability(raceNum){
       <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
       ${d.historical ? `<div class="metric-line"><b>Historical confirmation:</b> ${safe(d.historical.level==="strong" ? "STRONG — " + d.historical.text : d.historical.text)}</div>` : ""}
       ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
+      ${d.calibrated ? `<div class="metric-line"><b>Historical win estimate:</b> ${d.calibrated.pct.toFixed(1)}% — ${safe(d.calibrated.label)}. ${safe(d.calibrated.basis)}</div>` : ""}
       ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
       <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Backtesting showed that higher v5.0 percentages did not produce a comparable increase in win rate. Use it for ranking, not as a betting edge or fair odds.</div>
     `;
@@ -3234,7 +3276,7 @@ function historicalConsensus(field, modelTopHorse){
 
 
 /*
-RACE BET QUALITY — v7.2
+RACE BET QUALITY — v7.3
 Historical test bed: paired_final6.csv, 196 races.
 
 The race-quality layer does NOT change horse scores or classifications.
@@ -3755,7 +3797,8 @@ function computeRaceCard(){
             decision,
             marketRank,
             historical:historicalConsensus(activeField,top.horse),
-            raceQuality:raceBetQuality(activeField,top.horse)
+            raceQuality:raceBetQuality(activeField,top.horse),
+            calibrated:calibratedWinEstimate(activeField,top.horse)
         };
 
 
@@ -3808,13 +3851,13 @@ function computeRaceCard(){
                 <div>
 
                     <div class="model-prob">
-                        <button class="prob-button" onclick="openProbability('${safe(raceNum)}')" aria-label="Open model probability details">
-                            ${(top.probability*100).toFixed(1)}%
+                        <button class="prob-button" onclick="openProbability('${safe(raceNum)}')" aria-label="Open probability details">
+                            ${calibratedWinEstimate(activeField, top.horse).pct.toFixed(1)}%
                         </button>
                     </div>
 
                     <div class="confidence ${quality.label==="COMPLETE" ? "conf-strong" : quality.label==="PARTIAL" ? "conf-lean" : "conf-caution"}">
-                        DATA QUALITY ${quality.label} · TAP % FOR DETAILS
+                        HISTORICAL WIN ESTIMATE · DATA QUALITY ${quality.label} · TAP % FOR DETAILS
                     </div>
 
                 </div>
@@ -3887,6 +3930,7 @@ function computeRaceCard(){
 
             ${historicalConsensusHTML(activeField, top.horse)}
             ${raceBetQualityHTML(activeField, top.horse)}
+            ${calibratedProbabilityHTML(activeField, top.horse)}
 
 
             <div class="reason-box">
@@ -5108,6 +5152,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.2 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.3 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
