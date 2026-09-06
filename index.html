@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Overlay Board v1.30 — Race Card Reader</title>
+<title>Horse Handicap v7.4 · September 5, 2026 — iPhone / Safari</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
@@ -803,20 +803,43 @@
     .board{box-shadow:none; border:1px solid #bbb;}
     .race-card, .field-table{page-break-inside:avoid;}
   }
+
+/* ===== Horse Handicap v7.4 presentation — restored from v7.3 ===== */
+.wrap{max-width:1400px;margin:0 auto;}
+header{background:linear-gradient(180deg,var(--board-900),var(--board-950));padding:30px 20px 25px;border-bottom:3px solid var(--amber-dim);position:relative;}
+header::before{display:none!important;}
+.eyebrow{font-family:var(--mono);color:var(--amber);font-size:12px;letter-spacing:.2em;text-transform:uppercase;margin:0 0 8px;}
+h1{margin:0;color:var(--paper);font-weight:800;font-size:clamp(26px,5vw,40px);letter-spacing:0;}
+h1 .flap{display:inline;background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;color:inherit!important;}
+.tagline{color:#B9C9BE;font-size:14px;max-width:75ch;margin:10px 0 0;line-height:1.5;}
+main{background:var(--paper);padding:22px 16px 60px;}
+section{margin-bottom:30px;}
+h2{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 14px;font-weight:700;display:flex;align-items:center;gap:10px;}
+h2::after{content:"";flex:1;height:1px;background:var(--paper-line);}
+.step-num{font-family:var(--mono);background:var(--board-950);color:var(--amber);font-size:11px;padding:3px 7px;border-radius:2px;}
+.upload-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:15px;}
+.upload-grid.four-col{grid-template-columns:repeat(auto-fit,minmax(290px,1fr));}
+.upload-card{border:1.5px dashed var(--paper-line);border-radius:5px;padding:17px;background:var(--paper-dim);}
+.tabbar{position:static;box-shadow:none;background:transparent;border-bottom:2px solid var(--paper-line);margin:0 0 18px;}
+.tabbar button{font-size:11px;letter-spacing:.04em;padding:10px 13px;}
+.primary-btn{background:var(--amber);color:var(--ink);}
+.best-pick,.race-card,.analysis-card,.h2h-card{border-radius:4px;}
+@media(max-width:700px){header{padding:24px 16px 20px;}main{padding:18px 10px 50px}.upload-grid,.upload-grid.four-col{grid-template-columns:1fr}.tabbar{overflow-x:auto;-webkit-overflow-scrolling:touch}.tabbar button{font-size:10px;padding:10px 11px}}
+
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <p class="eyebrow">Handicapping utility · <span class="ver">v1.30</span> · released 5 September 2026</p>
-    <h1><span class="flap">O</span><span class="flap">v</span><span class="flap">e</span><span class="flap">r</span><span class="flap">l</span><span class="flap">a</span><span class="flap">y</span> <span class="flap">B</span><span class="flap">o</span><span class="flap">a</span><span class="flap">r</span><span class="flap">d</span></h1>
-    <p class="tagline">Upload a data file or program PDF. Overlay Board lays out the whole card: past performances, scratches, money moves, and where the board likes a horse.</p>
+    <p class="eyebrow">Professional Handicapping &amp; Value Engine</p>
+    <h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.4</span></h1>
+    <p class="tagline">BRIS Single File parser + field-relative handicapping engine using market, Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, workouts, surface/distance fit and value. Includes Speed Confirmed validation. Built for iPhone/Safari.</p>
   </header>
 
   <main>
     <!-- STEP 1: UPLOAD -->
     <section class="no-print">
-      <h2><span class="step-num">1</span> Bring in your data</h2>
+      <h2><span class="step-num">1</span> Load Race Data &amp; Scratches / Rider Changes</h2>
       <div class="upload-grid four-col">
         <div class="upload-card">
           <h3>Brisnet data file</h3>
@@ -864,7 +887,7 @@
 
     <!-- STEP 2: TABLE -->
     <section class="no-print">
-      <h2><span class="step-num">2</span> Check &amp; edit entries</h2>
+      <h2><span class="step-num">2</span> Field Entries</h2>
       <p style="font-size:12.5px; color:var(--ink-soft); margin:-6px 0 12px;"><b>ML odds</b> comes in with the file. <b>Final</b> starts empty — fill it in at the track; it never overwrites the morning line. <b>Surface fit</b> and <b>Class</b> are optional. Tick <b>Scr</b> for a scratch and rebuild the card: scratched horses drop out and the field renormalizes.</p>
       <div class="scratch-panel">
         <h3>Apply scratches from the Equibase feed</h3>
@@ -902,7 +925,7 @@
         <button class="ghost-btn" id="addRowBtn">+ Add row</button>
         <button class="ghost-btn" id="demoBtn">Load demo data</button>
         <button class="ghost-btn" id="clearBtn">Clear all</button>
-        <button class="primary-btn" id="computeBtn">Build the card →</button>
+        <button class="primary-btn" id="computeBtn">Compute Race Card →</button>
       </div>
     </section>
 
@@ -915,16 +938,16 @@
     <div class="status no-print" id="printStatus"></div>
 
     <div class="tabbar no-print" id="tabbar" style="display:none;">
-      <button data-tab="picks" id="tabPicks">Picks<span class="tab-count" id="pickCount">0</span></button>
-      <button data-tab="cards" class="on">Race cards</button>
-      <button data-tab="field">Full field</button>
+      <button data-tab="picks" id="tabPicks">Decision Board<span class="tab-count" id="pickCount">0</span></button>
+      <button data-tab="cards" class="on">Full Race Cards</button>
+      <button data-tab="field">Contenders / Field</button>
       <button data-tab="score">Benchmark</button>
       <button data-tab="bets">My bets<span class="tab-count" id="betCount">0</span></button>
       <button data-tab="print">Printable page</button>
     </div>
 
     <section id="picksSection" style="display:none;">
-      <h2><span class="step-num">★</span> Where the board likes a horse</h2>
+      <h2><span class="step-num">★</span> Decision Board</h2>
       <div class="rss-info" style="margin:0 0 14px;">Two bet lines plus one measured watch. <b>Pick</b> &mdash; the field's highest career earnings per start is also the market favourite, at a morning line of 2.5 or shorter, still favourite at post, and competitive at today's level in at least two of its last four starts. <b>Price play</b> &mdash; a different and so far unproven line that fires only where a Pick cannot: the favourite is <i>second</i> on earnings per start. <b>Speed Confirmed</b> &mdash; a watch flag, not an automatic bet, when the same runner is #1 on both last-race BRIS speed and best BRIS speed in the field. The historical paired file showed the strongest value when that horse was not the favourite.</div>
       <div id="pickList"></div>
     </section>
@@ -4644,7 +4667,7 @@ function reportParts(){
   const cardWhen = cardDateLong();
   const cardWho = cardTrack();
   const titleLine = [cardWho, cardWhen].filter(Boolean).join(' \u00b7 ');
-  const header = `<header><p class="eyebrow">Overlay Board \u00b7 race card</p><h1 style="font-size:30px;">Race Card${titleLine ? ' \u2014 ' + escHtml(titleLine) : ''}</h1><p class="tagline">Generated ${stamp}. ${srcLine} Scratched horses were excluded before computing.</p>${scratchLine}</header>`;
+  const header = `<header><p class="eyebrow">Horse Handicap \u00b7 race card</p><h1 style="font-size:30px;">Race Card${titleLine ? ' \u2014 ' + escHtml(titleLine) : ''}</h1><p class="tagline">Generated ${stamp}. ${srcLine} Scratched horses were excluded before computing.</p>${scratchLine}</header>`;
   const picksBlock = grab('pickList')
     ? `<section><h2>Picks</h2>${grab('pickList')}</section>` : '';
   const betsBlock = (grab('betTally') || grab('betList'))
@@ -4669,6 +4692,6 @@ function renderPrintView(){
 
 renderRows();
 </script>
-  <div style="text-align:center; padding:14px 0 24px; font-family:var(--mono); font-size:10px; color:var(--paper-line); opacity:.7;">Overlay Board v1.30 · released 5 September 2026 · build 2026-09-05-c</div>
+  <div style="text-align:center; padding:14px 0 24px; font-family:var(--mono); font-size:10px; color:var(--paper-line); opacity:.7;">Horse Handicap v7.4 · released 5 September 2026 · Speed Confirmed build</div>
 </body>
 </html>
