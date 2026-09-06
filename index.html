@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.5 · September 5, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.6 · September 5, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -780,7 +780,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.5</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.6</span></h1>
 <p class="tagline">
 BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Speed Confirmed marks a runner that is #1 in both last and best BRIS speed. Built for iPhone/Safari.
 </p>
@@ -984,7 +984,7 @@ Contenders / Questionable / Pretenders
 
 <section id="analysisSection" style="display:none;"></section>
 
-<div style="text-align:center;padding:18px 8px 6px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);">Horse Handicap v7.5 · September 5, 2026 · Speed Confirmed + RSS/XML</div>
+<div style="text-align:center;padding:18px 8px 6px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);">Horse Handicap v7.6 · September 5, 2026 · Speed Confirmed + RSS/XML</div>
 
 </main>
 
@@ -3504,11 +3504,13 @@ function classificationEvidence(item,scored,field){
     const top=scored[0];
     const contenderBase=(rank<=3 || item.probability >= top.probability*.72) && classDropStatus(horse).qualified;
 
+    // Leading model horses remain contenders unless a stale class drop blocks them.
     if(contenderBase){
         return {label:"CONTENDER",reason:rank===1 ? "Top model-ranked win candidate." : "Ranks with the leading win candidates on current evidence."};
     }
 
-    if(!pp.length){
+    // Unknown horses are protected. Lack of evidence is not negative evidence.
+    if(!pp.length || number(horse.starts)===0){
         return {label:"QUESTIONABLE",reason:"First-time starter / no usable past-performance race evidence. Do not eliminate for lack of data."};
     }
 
@@ -3521,20 +3523,52 @@ function classificationEvidence(item,scored,field){
         return surfaceOK && distanceOK;
     });
     if(!comparable.length) comparable=pp.slice(0,4);
+    comparable=comparable.slice(0,5);
 
+    // Finish-position evidence. A poor start is a finish in the bottom 40% of a field of 4+.
     const poor=comparable.filter(p=>{
         const fin=number(p.fin), n=number(p.entrants);
         return n>=4 && fin>Math.ceil(n*.60);
     }).length;
-    const repeatedNegative=comparable.length>=3 && poor>=Math.max(2,Math.ceil(comparable.length*.60));
-    const lowRank=rank>Math.ceil(scored.length*.60) && item.probability < top.probability*.72;
-    const weakSpeed=number(horse.lastSpeed)>0 && scored.filter(x=>number(x.horse.lastSpeed)>number(horse.lastSpeed)).length>=Math.ceil(scored.length*.60);
+    const repeatedNegative=comparable.length>=2 && poor>=2 && poor/comparable.length>=.60;
+    const severeRepeatedNegative=comparable.length>=3 && poor>=3 && poor/comparable.length>=.75;
 
-    if(repeatedNegative && lowRank && weakSpeed){
-        return {label:"PRETENDER",reason:`Negative PP evidence: ${poor} of ${comparable.length} comparable/recent starts finished in the lower part of the field, with a weak field-relative model/speed rank.`};
+    // Supporting field-relative negatives. None of these alone can make a Pretender.
+    const horsesWithSpeed=scored.filter(x=>number(x.horse.lastSpeed)>0);
+    const slowerCount=horsesWithSpeed.filter(x=>number(x.horse.lastSpeed)>number(horse.lastSpeed)).length;
+    const weakSpeed=number(horse.lastSpeed)>0 && horsesWithSpeed.length>=3 && slowerCount>=Math.ceil(horsesWithSpeed.length*.60);
+    const veryWeakSpeed=number(horse.lastSpeed)>0 && horsesWithSpeed.length>=4 && slowerCount>=Math.ceil(horsesWithSpeed.length*.75);
+
+    const lowRank=rank>Math.ceil(scored.length*.60) && item.probability < top.probability*.72;
+    const veryLowRank=rank>Math.ceil(scored.length*.70) && item.probability < top.probability*.55;
+    const weakForm=item.components && number(item.components.form)<=.34;
+    const weakClass=item.components && number(item.components.cls)<=.28;
+    const staleDrop=!classDropStatus(horse).qualified;
+
+    let negatives=0;
+    const reasons=[];
+    if(repeatedNegative){ negatives+=2; reasons.push(`${poor} of ${comparable.length} comparable/recent starts finished in the lower part of the field`); }
+    if(severeRepeatedNegative){ negatives+=1; }
+    if(weakSpeed){ negatives+=1; reasons.push("weak field-relative last speed"); }
+    if(veryWeakSpeed){ negatives+=1; }
+    if(weakForm){ negatives+=1; reasons.push("weak recent form"); }
+    if(weakClass){ negatives+=1; reasons.push("weak field-relative class evidence"); }
+    if(lowRank){ negatives+=1; reasons.push("low model rank"); }
+    if(veryLowRank){ negatives+=1; }
+    if(staleDrop){ negatives+=1; reasons.push("class drop without a recent race"); }
+
+    // Pretender requires demonstrated PP weakness plus corroboration.
+    // This replaces v7.6's overly strict requirement that three specific negatives all be true.
+    if(repeatedNegative && negatives>=4){
+        return {label:"PRETENDER",reason:`Negative PP evidence: ${reasons.join(", ")}. Morning line is not used to eliminate the horse.`};
     }
 
-    return {label:"QUESTIONABLE",reason:"Past performances do not provide enough negative evidence to eliminate this horse. Morning line is not used as an elimination rule."};
+    // A very strong repeated-failure record can eliminate even when one supporting field is missing.
+    if(severeRepeatedNegative && (veryWeakSpeed || veryLowRank || (weakForm && weakClass))){
+        return {label:"PRETENDER",reason:`Strong repeated negative PP evidence: ${reasons.join(", ")}. Morning line is not used to eliminate the horse.`};
+    }
+
+    return {label:"QUESTIONABLE",reason:"Past performances contain some uncertainty or weakness, but not enough corroborated negative evidence to eliminate this horse. Morning line is not used as an elimination rule."};
 }
 
 function trainerMultipleEntryMap(field){
