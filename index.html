@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Overlay Board v1.29 — Race Card Reader</title>
+<title>Overlay Board v1.30 — Race Card Reader</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
@@ -808,7 +808,7 @@
 <body>
 <div class="wrap">
   <header>
-    <p class="eyebrow">Handicapping utility · <span class="ver">v1.29</span> · released 5 September 2026</p>
+    <p class="eyebrow">Handicapping utility · <span class="ver">v1.30</span> · released 5 September 2026</p>
     <h1><span class="flap">O</span><span class="flap">v</span><span class="flap">e</span><span class="flap">r</span><span class="flap">l</span><span class="flap">a</span><span class="flap">y</span> <span class="flap">B</span><span class="flap">o</span><span class="flap">a</span><span class="flap">r</span><span class="flap">d</span></h1>
     <p class="tagline">Upload a data file or program PDF. Overlay Board lays out the whole card: past performances, scratches, money moves, and where the board likes a horse.</p>
   </header>
@@ -925,7 +925,7 @@
 
     <section id="picksSection" style="display:none;">
       <h2><span class="step-num">★</span> Where the board likes a horse</h2>
-      <div class="rss-info" style="margin:0 0 14px;">Two separate lines, and the only place this tool names a horse. <b>Pick</b> &mdash; the field's highest career earnings per start is also the market favourite, at a morning line of 2.5 or shorter, still favourite at post, and competitive at today's level in at least two of its last four starts. <b>Price play</b> &mdash; a separate line, used only where a Pick is not available: the morning-line favourite is <i>second</i> in the field on career earnings per start.</div>
+      <div class="rss-info" style="margin:0 0 14px;">Two bet lines plus one measured watch. <b>Pick</b> &mdash; the field's highest career earnings per start is also the market favourite, at a morning line of 2.5 or shorter, still favourite at post, and competitive at today's level in at least two of its last four starts. <b>Price play</b> &mdash; a different and so far unproven line that fires only where a Pick cannot: the favourite is <i>second</i> on earnings per start. <b>Speed Confirmed</b> &mdash; a watch flag, not an automatic bet, when the same runner is #1 on both last-race BRIS speed and best BRIS speed in the field. The historical paired file showed the strongest value when that horse was not the favourite.</div>
       <div id="pickList"></div>
     </section>
 
@@ -3232,6 +3232,39 @@ function figShape(horses){
           covered: figured.length, total: (horses || []).length};
 }
 
+// SPEED CONFIRMED — added v1.30 from paired_final7.csv.
+// A horse qualifies only when the SAME runner is tied for #1 on BOTH its
+// most recent BRIS speed figure and its best BRIS speed figure in this field.
+// Historical check: 102 qualifiers, 39 wins (38.2%) and +16.5% flat-win ROI.
+// The favourite subset was 23/45 with -7.1% ROI; nonfavourites were 16/57
+// with +35.1% ROI. Those are historical measurements, not a forecast, so this
+// remains a visible WATCH flag and does not replace the Pick/Price Play rules.
+function speedConfirmedShape(horses){
+  const figured = (horses || []).filter(h => h.lastSpd != null && h.bestSpd != null);
+  if (figured.length < 3) return null;
+  const topLast = Math.max(...figured.map(h => h.lastSpd));
+  const topBest = Math.max(...figured.map(h => h.bestSpd));
+  const hits = figured.filter(h => h.lastSpd === topLast && h.bestSpd === topBest);
+  if (!hits.length) return null;
+  return {hits, topLast, topBest, covered: figured.length, total: (horses || []).length};
+}
+
+function speedConfirmedLine(rs, chosen){
+  const sc = speedConfirmedShape(rs.horses || []);
+  if (!sc) return '';
+  const hit = sc.hits.find(x => x === chosen || (chosen && x.horse === chosen.horse && x.post === chosen.post));
+  if (!hit) return '';
+  const byMkt = (rs.byMarket || []).filter(x => x && x.decimalOdds != null);
+  const fav = byMkt.length ? byMkt[0] : null;
+  const isFav = fav && (fav === hit || (fav.horse === hit.horse && fav.post === hit.post));
+  return `<div class="pick-fig"><span class="bet-tag place">SPEED CONFIRMED</span> `
+    + `#1 last speed <b>${hit.lastSpd}</b> and #1 best speed <b>${hit.bestSpd}</b>. `
+    + `<span class="fig-note">${isFav
+      ? 'Historical favourite qualifiers won often but did not show value (-7.1% ROI in paired_final7).'
+      : 'VALUE WATCH: historical nonfavourite qualifiers were 16-for-57 (28.1%) with +35.1% flat-win ROI in paired_final7.'} `
+    + `Watch flag only — price still decides the bet.</span></div>`;
+}
+
 // On the PICK card the useful fact is whether the figure lands on the same
 // horse. It disagrees about half the time, and that is shown, not hidden —
 // separation measured backward across 139 races, so a figure agreeing is not
@@ -3264,27 +3297,29 @@ function pickConcerns(rs, h){
   const out = [];
   if (h.firstTimeTagged){
     out.push(`has not run for a claiming price in its last starts and is entered for a tag today` +
-      (h.todayClaim ? ` (${money(h.todayClaim)})` : ''));
+      (h.todayClaim ? ` (${money(h.todayClaim)})` : '') +
+      `. Horses first up for a tag won 14.0% against a price implying 18.5% across 179 cases`);
   }
   // The combination Robert flagged on GP 8/31 R8: only ever run above the
   // claiming ranks, long absence, now up for a tag. 18 such runners in the
   // pool won 11.1% against 20.1% implied; the seven at short prices went
   // 1-for-7. The smallest group here and the one to hold most loosely.
   if (h.firstTimeTagged && h.layoffDays != null && h.layoffDays >= 120){
-    out.push(`is also off ${h.layoffDays} days since its last start`);
+    out.push(`is also off ${h.layoffDays} days. First up for a tag AFTER a long absence has won 11.1% against 20.1% implied, on 18 cases`);
   }
   // NOT a concern. Tested on 81 such runners across 168 races: win/price ratio
   // 0.90, bootstrap 90% interval 0.68-1.12, P(ratio>=1) = 0.23 — indistinguishable
   // from fair, and the buckets do not order by size of drop (a drop to 51-80%
   // of the old price actually returned +9.0%). Shown as context below instead.
   if (h.classFit != null && h.classSeen >= 3 && h.classFit <= 1){
-    out.push(`has been competitive at today's level in only ${h.classFit} of its last ${h.classSeen} starts`);
+    out.push(`has been competitive at today's level in only ${h.classFit} of its last ${h.classSeen} starts. `
+      + `Short-priced horses scoring 0 or 1 have won 24.4% against a price implying 35.4%; scoring 3 or 4 they won 51.4%`);
   }
   if (h.layoffDays != null && h.layoffDays < 15){
-    out.push(`is back within ${h.layoffDays} days of its last start`);
+    out.push(`back within ${h.layoffDays} days. That group won 7.9% against 14.4% implied`);
   }
   if (h.lastSpd == null && (rs.horses || []).filter(x => x.lastSpd != null).length >= 3){
-    out.push(`carries no speed figure while most of the field does`);
+    out.push(`carries no speed figure while most of the field does. Those favourites won 20.0% against 32.3% implied`);
   }
   return out;
 }
@@ -3397,6 +3432,7 @@ function buildPick(rs){
       ${pickContext(rs, h)}
       ${marketNote}
       ${pickFigLine(rs, h)}
+      ${speedConfirmedLine(rs, h)}
       ${h.jockey || h.riderChange ? `<div class="pick-jky">${h.riderChange ? '' : 'Jockey '}${jockeyLine(h)}</div>` : ''}
       ${blindSpotNote(rs)}
       ${driftDowngrade(h)}
@@ -3413,6 +3449,7 @@ function buildPick(rs){
     ${pickContext(rs, p.h)}
     ${marketNote}
     ${pickFigLine(rs, p.h)}
+    ${speedConfirmedLine(rs, p.h)}
     ${p.h.jockey || p.h.riderChange ? `<div class="pick-jky">${p.h.riderChange ? '' : 'Jockey '}${jockeyLine(p.h)}</div>` : ''}
     ${blindSpotNote(rs)}
     ${driftDowngrade(p.h)}
@@ -3609,7 +3646,19 @@ function buildReadPanel(rs){
       ? `${fig.ties.map(h => horseLabel(h)).join(' · ')} share the top last-race figure at ${fig.top.lastSpd}.`
       : `${horseLabel(fig.top)} tops the field on its last-race figure at ${fig.top.lastSpd}, ${fig.gap} clear of ${escHtml(fig.second.horse)} (${fig.second.lastSpd}).`;
     lines.push(`<div class="bet-line"><span class="bet-tag">SPEED FIGURES</span> ${body}`
-      + `<span class="fig-note">${fig.covered} of ${fig.total} runners carry a figure.</span></div>`);
+      + `<span class="fig-note">${fig.covered} of ${fig.total} runners carry a figure. A wider gap has measured no better than a narrow one — this is the shape of the race, not a rating of the pick. Backing the top figure flat across 196 races: 163 bets, 28.8%, +1.7% — and +1.7% becomes −4.8% if the single best-priced winner is removed.</span></div>`);
+  }
+
+  const sc = speedConfirmedShape(horses);
+  if (sc){
+    const favHit = fav && sc.hits.some(h => h === fav || (h.horse === fav.horse && h.post === fav.post));
+    const names = sc.hits.map(h => horseLabel(h)).join(' · ');
+    lines.push(`<div class="bet-line"><span class="bet-tag place">SPEED CONFIRMED</span> ${names} `
+      + `${sc.hits.length === 1 ? 'is' : 'are'} #1 on both last speed (${sc.topLast}) and best speed (${sc.topBest}).`
+      + `<span class="fig-note">${favHit
+        ? 'Favourite qualifier: 23-for-45 historically, but -7.1% flat-win ROI.'
+        : 'VALUE WATCH: nonfavourite qualifiers were 16-for-57 (28.1%) with +35.1% flat-win ROI.'} `
+      + `Measured on paired_final7; watch flag only, not an automatic bet.</span></div>`);
   }
 
   // SAME BARN. Logged from 2026-09-02, watch-only, feeding nothing. Across
@@ -3932,28 +3981,54 @@ function buildBestOfDay(raceSummaries){
     <h3>Best of the day — ${picks.length} selection${picks.length === 1 ? '' : 's'}</h3>
     <div class="bo-sub">Listed in race order.</div>
     ${block(t1, 'Pick', '')}
-    ${t1.length ? PICK_BASIS : ''}
+    ${t1.length ? PICK_RECORD : ''}
     ${block(t2, 'Price play', '')}
-    ${t2.length ? PRICEPLAY_BASIS : ''}
+    ${t2.length ? PRICEPLAY_RECORD : ''}
   </div>`;
 }
 
-// WHAT EACH LINE MEANS, in terms of the uploaded data only. No win rates, no
-// test results, no sample sizes — those live in the conversation, not on the
-// card. Robert's instruction 2026-09-05: keep the explanation to the past
-// performances and the file that was uploaded.
-const PICK_BASIS = `<div class="rule-record">
-  <b>Pick.</b> Read straight off the data file: this horse has the highest career earnings
-  per start in the field, is the morning-line favourite at 2.5 or shorter, is still the
-  favourite on the odds entered, and its last four starts show it competitive at today's
-  level at least twice. Tap the race number for every runner's past performances.
+// Each tier gets its OWN record, rendered directly under its own rows.
+//
+// This was previously ONE block at the foot of the panel, which meant the Pick
+// line's 47-race record rendered underneath a Price play as well and read as if
+// it described it. It does not. Ortley Avenue (SAR 9/5 R9) was a Price play and
+// showed the Pick record beneath it; that was the bug. Fixed 2026-09-05.
+//
+// Always on screen — a named horse without its record is the thing this tool
+// exists not to do. Stripped from the printable/shared page by CSS instead.
+const PICK_RECORD = `<div class="rule-record">
+  <b>What this rule has done.</b> On the 177 races it was built from: 47 picks, 46.8% won,
+  &minus;2.6% at flat $2. That is a strike rate well above the field average and a return
+  still under water, which is the shape every measurement in this project has taken &mdash;
+  the rule finds winners at prices that have already paid for them.<br><br>
+  <b>Filter C (class fit) has not yet done any work.</b> Added 2026-09-02 and registered before
+  being scored forward. Three forward cards on, it has not once rejected a horse the rule
+  would otherwise have bet: on SAR 9/4 both picks had fewer than three recent starts, so it
+  was skipped, and its one suppression had already failed filters A and B; on GP 9/4 it passed
+  the pick at 3 of 4. Until it changes an outcome, treat the in-sample numbers behind it
+  (10 picks, 70.0%, +61.6%) as untested.<br><br>
+  Nothing here is a forecast, and a strike rate is not a profit.
 </div>`;
 
-const PRICEPLAY_BASIS = `<div class="rule-record">
-  <b>Price play &mdash; a different line from a Pick.</b> Here the morning-line favourite is
-  <i>second</i> in the field on career earnings per start rather than first, and one of the
-  Pick conditions is not met. The horse is named on that basis alone. Tap the race number
-  for every runner's past performances.
+// The PRICE PLAY tier, written down 2026-09-05 so it can start accumulating a
+// record. DEFINITION: the market favourite is SECOND in the field on career
+// earnings per start (not first), the field is rankable at all (3+ horses with
+// a record, at least half the field), and the Pick filters have failed — so
+// this line never competes with a Pick, it only fires where one cannot.
+//
+// It has never been scored. It is in NONE of the numbers behind the Pick line:
+// not the 47-race record, not the five-card forward test. The count below is a
+// first look across the only four cards with data files on hand and is far too
+// small to mean anything.
+const PRICEPLAY_RECORD = `<div class="rule-record">
+  <b>This is a Price play, not a Pick — and it has no record yet.</b> Different line,
+  different rule: here the favourite is <i>second</i> on earnings per start, and the Pick
+  filters have failed. None of the Pick line's history applies to it.<br><br>
+  Everything measured so far: <b>5 plays, 1 winner, &minus;18.2%</b>, across SAR and GP on
+  9/4 and 9/5. The winner was Ortley Avenue at 3.09; the other four ran 2nd, 2nd, 3rd
+  and 4th. Five plays is a count, not a record &mdash; treat this line as unproven until
+  it has a great deal more behind it.<br><br>
+  Nothing here is a forecast, and a strike rate is not a profit.
 </div>`;
 
 function renderPicks(raceSummaries){
@@ -4009,7 +4084,10 @@ function renderFullField(mode){
       const modelCell = h.modelProb != null ? pct(h.modelProb) : '—';
       const adjMark = h.adjusted ? ` <span class="fit-mark" title="Rating blended with surface fit, class move, and/or trainer/jockey meet stats">†</span>` : '';
       const isFav = h.post === favPost;
-      const nameTxt = isFav ? `<b>${escHtml(h.horse)}</b>` : escHtml(h.horse);
+      const sc = speedConfirmedShape(rc.horses);
+      const isSpeedConfirmed = sc && sc.hits.some(x => x === h || (x.horse === h.horse && x.post === h.post));
+      const scMark = isSpeedConfirmed ? ` <span class="flag ok" title="#1 on both last and best BRIS speed">SC</span>` : '';
+      const nameTxt = (isFav ? `<b>${escHtml(h.horse)}</b>` : escHtml(h.horse)) + scMark;
       const nameCell = (h.ppRaces && h.ppRaces.length) || (h.ppWorks && h.ppWorks.length)
         ? `<a class="pp-link" data-pp-race="${escAttr(rc.race)}" data-pp-horse="${escAttr(h.horse)}" title="Tap for past performances">${nameTxt}</a>`
         : nameTxt;
@@ -4591,6 +4669,6 @@ function renderPrintView(){
 
 renderRows();
 </script>
-  <div style="text-align:center; padding:14px 0 24px; font-family:var(--mono); font-size:10px; color:var(--paper-line); opacity:.7;">Overlay Board v1.29 · released 5 September 2026 · build 2026-09-05-c</div>
+  <div style="text-align:center; padding:14px 0 24px; font-family:var(--mono); font-size:10px; color:var(--paper-line); opacity:.7;">Overlay Board v1.30 · released 5 September 2026 · build 2026-09-05-c</div>
 </body>
 </html>
