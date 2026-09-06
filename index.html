@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.7 · September 5, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.8 · September 5, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -780,9 +780,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.7</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.8</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.7 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.8 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
 </p>
 </header>
 
@@ -3114,7 +3114,7 @@ function getConfidence(top,second){
 }
 
 
-/* v7.7 calibrated confidence — September 5, 2026.
+/* v7.8 calibrated confidence — September 5, 2026.
    Ranking is unchanged; this is the displayed historical win estimate.
    Race number is not used: exact consensus was 52.6% in R1–3 and 52.6% in R4+ historically. */
 function calibratedWinEstimate(field, topHorse){
@@ -3276,7 +3276,7 @@ function historicalConsensus(field, modelTopHorse){
 
 
 /*
-RACE BET QUALITY — v7.7
+RACE BET QUALITY — v7.8
 Historical test bed: paired_final6.csv, 196 races.
 
 The race-quality layer does NOT change horse scores or classifications.
@@ -3491,42 +3491,75 @@ function classificationEvidence(item,scored,field){
     const horse=item.horse;
     const pp=(horse.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
     const rank=scored.indexOf(item)+1;
-    const top=scored[0];
-    const contenderBase=(rank<=3 || item.probability >= top.probability*.72) && classDropStatus(horse).qualified;
 
-    if(contenderBase){
-        return {label:"CONTENDER",reason:rank===1 ? "Top model-ranked win candidate." : "Ranks with the leading win candidates on current evidence."};
+    // Restore the logic from the supplied Overlay Board:
+    // the MARKET creates the elimination cut. 12-1+ OR outside the top five
+    // is a Pretender candidate. Lack of evidence can rescue the horse to
+    // Questionable, but it does not promote it to Contender.
+    const market=field
+        .filter(h=>oddsDecimal(h.odds)!==null)
+        .slice()
+        .sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+    const marketIndex=market.findIndex(h=>h.id===horse.id);
+    const marketRank=marketIndex>=0 ? marketIndex+1 : null;
+    const dec=oddsDecimal(horse.odds);
+    const price=dec==null ? null : dec-1;
+    const cutReasons=[];
+    if(price!==null && price>=12) cutReasons.push(`${safe(horse.odds)} — 12-1 or longer`);
+    if(marketRank!==null && marketRank>5) cutReasons.push(`${marketRank}th choice of ${market.length}`);
+
+    if(cutReasons.length){
+        const debut=!pp.length || number(horse.starts)===0;
+
+        // Same rescue principle as the supplied program: a horse with no form
+        // cannot honestly be called a Pretender.
+        if(debut){
+            return {label:"QUESTIONABLE",reason:`${cutReasons.join("; ")}; first-time starter / no usable form — insufficient evidence to eliminate.`};
+        }
+
+        // A price-cut horse with repeated competitive comparable form stays
+        // Questionable rather than being thrown out solely by the market.
+        const targetSurface=horse.currentSurface;
+        const targetDistance=Math.abs(number(horse.currentDistance));
+        let comparable=pp.filter(p=>{
+            const d=Math.abs(number(p.dist));
+            const surfaceOK=!targetSurface || !p.surf || sameSurface(targetSurface,p.surf);
+            const distanceOK=!targetDistance || !d || Math.abs(d-targetDistance)<=330;
+            return surfaceOK && distanceOK;
+        });
+        if(!comparable.length) comparable=pp.slice(0,4);
+        const recent=comparable.slice(0,4);
+        const competitive=recent.filter(p=>{
+            const fin=number(p.fin), n=number(p.entrants);
+            return fin>0 && (fin<=3 || (n>=4 && fin<=Math.ceil(n*.40)));
+        }).length;
+        if(recent.length>=3 && competitive>=2){
+            return {label:"QUESTIONABLE",reason:`${cutReasons.join("; ")}; but ${competitive} of ${recent.length} comparable/recent starts were competitive — keep live for review.`};
+        }
+
+        return {label:"PRETENDER",reason:`Market elimination evidence: ${cutReasons.join("; ")}. Has usable past performances and not enough recent comparable form to override the cut.`};
     }
 
-    if(!pp.length){
-        return {label:"QUESTIONABLE",reason:"First-time starter / no usable past-performance race evidence. Do not eliminate for lack of data."};
+    // The supplied Overlay Board kept a horse beaten 10L+ as Questionable,
+    // not Pretender. Preserve that caution.
+    if(pp.length){
+        const targetSurface=horse.currentSurface;
+        const targetDistance=Math.abs(number(horse.currentDistance));
+        const comparable=pp.filter(p=>{
+            const d=Math.abs(number(p.dist));
+            const surfaceOK=!targetSurface || !p.surf || sameSurface(targetSurface,p.surf);
+            const distanceOK=!targetDistance || !d || Math.abs(d-targetDistance)<=330;
+            return surfaceOK && distanceOK;
+        });
+        const last=(comparable.length?comparable:pp)[0];
+        const fin=number(last && last.fin), n=number(last && last.entrants);
+        if(fin>0 && n>=4 && fin>Math.ceil(n*.80)){
+            return {label:"QUESTIONABLE",reason:"Poor last comparable finish, but still inside the market cut — review rather than eliminate."};
+        }
     }
 
-    const targetSurface=horse.currentSurface;
-    const targetDistance=Math.abs(number(horse.currentDistance));
-    let comparable=pp.filter(p=>{
-        const d=Math.abs(number(p.dist));
-        const surfaceOK=!targetSurface || !p.surf || sameSurface(targetSurface,p.surf);
-        const distanceOK=!targetDistance || !d || Math.abs(d-targetDistance)<=330;
-        return surfaceOK && distanceOK;
-    });
-    if(!comparable.length) comparable=pp.slice(0,4);
-
-    const poor=comparable.filter(p=>{
-        const fin=number(p.fin), n=number(p.entrants);
-        return n>=4 && fin>Math.ceil(n*.60);
-    }).length;
-    const repeatedNegative=comparable.length>=3 && poor>=Math.max(2,Math.ceil(comparable.length*.60));
-    const lowRank=rank>Math.ceil(scored.length*.60) && item.probability < top.probability*.72;
-    const weakSpeed=number(horse.lastSpeed)>0 && scored.filter(x=>number(x.horse.lastSpeed)>number(horse.lastSpeed)).length>=Math.ceil(scored.length*.60);
-
-    if(repeatedNegative && lowRank && weakSpeed){
-        return {label:"PRETENDER",reason:`Negative PP evidence: ${poor} of ${comparable.length} comparable/recent starts finished in the lower part of the field, with a weak field-relative model/speed rank.`};
-    }
-
-    return {label:"QUESTIONABLE",reason:"Past performances do not provide enough negative evidence to eliminate this horse. Morning line is not used as an elimination rule."};
+    return {label:"CONTENDER",reason:"Inside the market's top-five / under-12-1 frame; no elimination trigger."};
 }
-
 function trainerMultipleEntryMap(field){
     const counts={};
     (field || []).forEach(h=>{
@@ -3731,6 +3764,7 @@ function computeRaceCard(){
 
 
     let bestHTML = "";
+    let betRaceRows = [];
     let cardHTML = "";
     let liveCardHTML = "";
     let analysisHTML = "";
@@ -3823,6 +3857,13 @@ function computeRaceCard(){
             raceQuality:raceBetQuality(activeField,top.horse),
             calibrated:calibratedWinEstimate(activeField,top.horse)
         };
+
+        const betQ=raceBetQuality(activeField,top.horse);
+        betRaceRows.push({
+            race:String(raceNum), horse:top.horse, quality:betQ,
+            pass:passFlag, close:closeRace, marketRank,
+            speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed
+        });
 
 
         bestHTML += `
@@ -4052,8 +4093,32 @@ function computeRaceCard(){
         </div>`;
     });
 
+    const betOrder={strong:0,standard:1,caution:2,pass:3};
+    const rankedBetRaces=betRaceRows.slice().sort((a,b)=>{
+        const ap=a.pass?4:(betOrder[a.quality.level]??3);
+        const bp=b.pass?4:(betOrder[b.quality.level]??3);
+        return ap-bp || number(a.race)-number(b.race);
+    });
+    const bestBetRaces=rankedBetRaces.filter(x=>!x.pass && (x.quality.level==="strong" || x.quality.level==="standard"));
+    const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
+      <h3>Best Races to Bet</h3>
+      <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
+        Ranked from the Decision Board's existing historical race-quality test. A race-level PASS still overrides this list.
+      </p>
+      ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
+        <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
+          <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
+          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.quality.label)}</span>
+          ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
+          ${x.close?'<span class="badge">CLOSE RACE</span>':''}
+          <div class="metric-line">${safe(x.quality.text)}</div>
+        </div>`).join("") :
+        '<div class="warning-box"><b>No race qualifies as a Strong or Standard bet today.</b> Treat the remaining races as caution/pass rather than forcing a wager.</div>'}
+    </div>`;
+
     $("bestSection").innerHTML = `
 
+        ${betRaceSummary}
         <div class="bestof">
 
             <h3>
@@ -5175,6 +5240,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.7 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.8 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
