@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.14 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.15 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.14</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.15</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.14 adds live race-surface changes from the Equibase changes feed. When a race moves from turf to dirt/main track (or vice versa), Surface Fit, condition fit, surface-specific Best Speed, model rankings, probabilities, Decision Board and Best Races to Bet are recomputed automatically. The original DRF surface is preserved and changed races are flagged.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.15 bases Decision Board support on the horse's own performances and earnings rather than comparison labels. Career earnings per start, surface-specific earnings per start, surface-specific Best Speed, last speed and Speed Confirmed are shown as evidence. Turf records use BRIS fields 75-79; off-track records use 80-84. Surface changes still trigger a full recomputation.
 </p>
 </header>
 
@@ -1857,6 +1857,11 @@ function loadDRF(text){
                 turfPlaces:getNumber(fields,77),
                 turfShows:getNumber(fields,78),
                 turfEarnings:getNumber(fields,79),
+                wetStarts:getNumber(fields,80),
+                wetWins:getNumber(fields,81),
+                wetPlaces:getNumber(fields,82),
+                wetShows:getNumber(fields,83),
+                wetEarnings:getNumber(fields,84),
 
                 starts:getNumber(fields,97),
                 wins:getNumber(fields,98),
@@ -3233,93 +3238,26 @@ function getConfidence(top,second){
 }
 
 
-/* v7.10 calibrated confidence — September 5, 2026.
-   Ranking is unchanged; this is the displayed historical win estimate.
-   Race number is not used: exact consensus was 52.6% in R1–3 and 52.6% in R4+ historically. */
-function calibratedWinEstimate(field, topHorse){
-    const active=(field||[]).filter(h=>!h.scratched);
-    if(!topHorse||!active.length) return {pct:null,label:"NO ESTIMATE",basis:""};
-    const hist=historicalConsensus(active,topHorse);
-    const n=active.length;
-    const fts=active.filter(isFirstTimeStarterForQuality).length;
-    let pct=35.7,label="NO HISTORICAL UPGRADE",
-        basis="No validated 3-of-4 consensus upgrade; using the 35.7% historical favorite baseline instead of raw score separation.";
-    if(hist.level==="strong"){
-        pct=52.6; label="CONSENSUS";
-        basis="3-of-4 consensus: 30 wins from 57 historical tests.";
-        if(fts===0 && n<=9){
-            pct=64.7; label="STRONG PROFILE";
-            basis="Consensus + no first-time starters + field of 9 or fewer: 22/34 historical wins.";
-        }else if(fts===0){
-            pct=62.2; label="NO-FTS PROFILE";
-            basis="Consensus + no first-time starters: 23/37 historical wins.";
-        }else{
-            pct=35.0; label="FTS CAUTION";
-            basis="Consensus with at least one first-time starter: 7/20 historical wins.";
-        }
-        if(n>=10){
-            pct=28.6; label="LARGE-FIELD CAUTION";
-            basis="Consensus in fields of 10 or more: 2/7 historical wins; small sample.";
-        }
-    }
-    return {pct,label,basis,fieldSize:n,ftsCount:fts};
-}
-function calibratedProbabilityHTML(field,topHorse){
-    const c=calibratedWinEstimate(field,topHorse);
-    if(c.pct==null)return "";
-    const warn=(c.label.includes("CAUTION")||c.label==="NO HISTORICAL UPGRADE")?" warn":"";
-    return `<div class="hist-confirm${warn}"><span class="hist-tag">HISTORICAL WIN ESTIMATE</span>
-      <b>${c.pct.toFixed(1)}%</b> · ${safe(c.label)}
-      <div style="margin-top:5px">${safe(c.basis)} <b>Historical sample rate, not a guaranteed probability.</b></div></div>`;
-}
-
-function openProbability(raceNum){
-    const d=probabilityDetails[String(raceNum)];
-    if(!d) return;
-    $("probContent").innerHTML=`
-      <h2 id="probTitle" style="font-size:18px;margin-right:30px;">Race ${safe(raceNum)} — Model Probability</h2>
-      <div class="model-prob" style="margin:8px 0;">${(d.probability*100).toFixed(1)}%</div>
-      <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
-      <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
-      <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
-      ${d.historical ? `<div class="metric-line"><b>Historical confirmation:</b> ${safe(d.historical.level==="strong" ? "STRONG — " + d.historical.text : d.historical.text)}</div>` : ""}
-      ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
-      ${d.calibrated ? `<div class="metric-line"><b>Historical win estimate:</b> ${d.calibrated.pct.toFixed(1)}% — ${safe(d.calibrated.label)}. ${safe(d.calibrated.basis)}</div>` : ""}
-      ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
-      <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Backtesting showed that higher v5.0 percentages did not produce a comparable increase in win rate. Use it for ranking, not as a betting edge or fair odds.</div>
-    `;
-    $("probOverlay").classList.add("show");
-}
-
-$("probCloseBtn").addEventListener("click",()=>$("probOverlay").classList.remove("show"));
-$("probOverlay").addEventListener("click",e=>{if(e.target===$("probOverlay")) $("probOverlay").classList.remove("show");});
-
-
 /* ============================================================
-   EXPLANATION
+   PERFORMANCE + EARNINGS SUPPORT — v7.15
+   Uses only the horse data parsed from the race card; no comparison badge.
+   This layer does not alter the underlying Horse Handicap score.
+   It describes whether the TOP HORSE is supported by independent
+   performance and earnings evidence already present in the DRF.
+
+   Earnings evidence:
+     • career earnings per start for every surface
+     • turf earnings per start when today's race is turf
+     • off-track earnings per start when today's dirt race is wet/off
+   Performance evidence:
+     • today's surface-specific Best Speed
+     • last-race speed
+     • Speed Confirmed (#1 last speed AND #1 best speed)
+
+   The old 52.6% / 64.7% support percentages are intentionally retired.
+   They described a different morning-line support rule and must not be
+   carried forward as win probabilities for this new evidence set.
 ============================================================ */
-
-
-/*
-HISTORICAL CONSENSUS CONFIRMATION
-Measured on paired_final6.csv: 196 races, 1,459 runners, four tracks.
-This is NOT a replacement model and is NOT a calibrated probability.
-
-A morning-line favorite at 5/2 or shorter that ranked #1 on at least
-3 of these 4 measures:
-  1) Prime Power
-  2) last-race speed
-  3) best speed
-  4) average of the last 3 usable BRIS speed figures
-won 30 of 57 (52.6%) in the full sample. When it also remained the
-post-time favorite, it won 25 of 45 (55.6%). The current Horse Handicap
-file carries morning line but not a separate live-final-odds column, so
-the in-app badge uses the pre-race portion only.
-
-Use this as a confidence confirmation only when it AGREES with the
-existing model top pick. It never overrides the model or creates a
-Pretender.
-*/
 function avg3RaceSpeed(horse){
     const vals=(horse.ppRaces || [])
         .slice(0,3)
@@ -3344,75 +3282,105 @@ function isTopOn(horse,field,selector){
     return !!(t && t.ties.some(h=>h.id===horse.id));
 }
 
-function historicalConsensus(field, modelTopHorse){
-    const priced=(field || [])
-        .map(h=>({h,o:oddsDecimal(h.odds)}))
-        .filter(x=>x.o!==null && x.o>=0)
-        .sort((a,b)=>a.o-b.o);
-
-    if(!priced.length){
-        return {level:"none",agreements:0,text:"No morning line available for historical confirmation."};
-    }
-
-    const fav=priced[0].h;
-    const favOdds=priced[0].o;
-    const checks=[
-        {name:"Prime Power", ok:isTopOn(fav,field,h=>number(h.score || h.primePower))},
-        {name:"last speed", ok:isTopOn(fav,field,h=>number(h.lastSpeed))},
-        {name:"best speed", ok:isTopOn(fav,field,h=>number(h.bestSpeed))},
-        {name:"3-race average speed", ok:isTopOn(fav,field,h=>avg3RaceSpeed(h))}
-    ];
-    const agreements=checks.filter(x=>x.ok).length;
-    const topNames=checks.filter(x=>x.ok).map(x=>x.name);
-    const modelAgrees=!!(modelTopHorse && fav.id===modelTopHorse.id);
-    const priceOK=favOdds<=2.5;
-
-    if(priceOK && agreements>=3 && modelAgrees){
-        return {
-            level:"strong",
-            agreements,
-            fav,
-            text:`Historical confirmation: model and morning-line favorite agree, M/L ${fav.odds}, and this horse is #1 on ${agreements} of 4 independent ranking checks (${topNames.join(", ")}). In the 196-race paired file, this pre-race pattern won 30 of 57 races (52.6%).`
-        };
-    }
-
-    if(priceOK && agreements>=3 && !modelAgrees){
-        return {
-            level:"disagree",
-            agreements,
-            fav,
-            text:`Historical signal points to #${fav.post || "?"} ${fav.horse}: M/L ${fav.odds}, #1 on ${agreements} of 4 ranking checks, but the current model ranks another horse first. No confidence upgrade — review both.`
-        };
-    }
-
-    return {
-        level:"none",
-        agreements,
-        fav,
-        text:`No historical confidence upgrade. Morning-line favorite #${fav.post || "?"} ${fav.horse} is #1 on ${agreements} of 4 ranking checks${priceOK ? "" : ` and is above the 5/2 historical price cut`}.`
-    };
+function rankValue(horse, field, selector){
+    const vals=(field||[])
+        .map(h=>({h,v:number(selector(h))}))
+        .filter(x=>x.v>0)
+        .sort((a,b)=>b.v-a.v);
+    const row=vals.find(x=>x.h.id===horse.id);
+    if(!row) return {rank:null,count:vals.length,value:0,tied:false};
+    const rank=1+vals.filter(x=>x.v>row.v).length;
+    const tied=vals.filter(x=>x.v===row.v).length>1;
+    return {rank,count:vals.length,value:row.v,tied};
 }
 
+function careerEPS(h){
+    const st=number(h.starts), e=number(h.careerEarnings);
+    return st>0 && e>0 ? e/st : 0;
+}
+function turfEPS(h){
+    const st=number(h.turfStarts), e=number(h.turfEarnings);
+    return st>0 && e>0 ? e/st : 0;
+}
+function wetEPS(h){
+    const st=number(h.wetStarts), e=number(h.wetEarnings);
+    return st>0 && e>0 ? e/st : 0;
+}
 
-/*
-RACE BET QUALITY — v7.10
-Historical test bed: paired_final6.csv, 196 races.
+function performanceEarningsSupport(field, horse){
+    const active=(field||[]).filter(h=>!h.scratched);
+    if(!horse || !active.length) return {level:'thin',label:'THIN DATA',points:0,max:0,text:'No usable field data.'};
 
-The race-quality layer does NOT change horse scores or classifications.
-It asks a different question: has this TYPE of race been comparatively
-predictable when the existing 3-of-4 historical consensus signal fires?
+    let points=0, max=0;
+    const notes=[];
 
-Measured results used here:
-  base 3-of-4 consensus:                 30/57 = 52.6%
-  consensus + no first-time starter:    23/37 = 62.2%
-  consensus + field <= 9:               28/50 = 56.0%
-  consensus + no FTS + field <= 9:      22/34 = 64.7%
-  consensus + ML <= 2/1 + no FTS:       20/31 = 64.5%
+    const ce=rankValue(horse,active,careerEPS);
+    if(ce.count>=3 && ce.rank!==null){
+        max+=2;
+        if(ce.rank===1){points+=2; notes.push(`career earnings/start #1 (${formatRecordMoney(ce.value)})`);}
+        else if(ce.rank<=3){points+=1; notes.push(`career earnings/start #${ce.rank} (${formatRecordMoney(ce.value)})`);}
+        else notes.push(`career earnings/start #${ce.rank}`);
+    }else{
+        notes.push('career earnings/start too thin to rank');
+    }
 
-The strongest no-FTS / <=9 pattern also held in a crude chronological
-split: 16/24 early and 6/10 later. These are historical sample rates,
-not guaranteed future probabilities.
-*/
+    const g=surfaceGroup(horse.currentSurface);
+    const cg=conditionGroup(horse.currentTrackCondition);
+    let surfRank=null, surfName='';
+    if(g==='T'){
+        surfRank=rankValue(horse,active,turfEPS); surfName='turf earnings/start';
+    }else if(g==='D' && cg==='OFF'){
+        surfRank=rankValue(horse,active,wetEPS); surfName='off-track earnings/start';
+    }
+    if(surfRank){
+        if(surfRank.count>=3 && surfRank.rank!==null){
+            max+=2;
+            if(surfRank.rank===1){points+=2; notes.push(`${surfName} #1 (${formatRecordMoney(surfRank.value)})`);}
+            else if(surfRank.rank<=3){points+=1; notes.push(`${surfName} #${surfRank.rank} (${formatRecordMoney(surfRank.value)})`);}
+            else notes.push(`${surfName} #${surfRank.rank}`);
+        }else{
+            notes.push(`${surfName} too thin to rank`);
+        }
+    }
+
+    const sb=rankValue(horse,active,surfaceBestSpeed);
+    if(sb.count>=3 && sb.rank!==null){
+        max+=2;
+        if(sb.rank===1 && !sb.tied){points+=2; notes.push(`sole #1 surface Best Speed (${Math.round(sb.value)})`);}
+        else if(sb.rank===1 || sb.rank===2){points+=1; notes.push(`surface Best Speed #${sb.rank}${sb.tied?' (tied)':''}`);}
+        else notes.push(`surface Best Speed #${sb.rank}`);
+    }else{
+        notes.push('surface Best Speed too thin to rank');
+    }
+
+    const ls=rankValue(horse,active,h=>number(h.lastSpeed));
+    if(ls.count>=3 && ls.rank!==null){
+        max+=1;
+        if(ls.rank===1){points+=1; notes.push(`last speed #1 (${Math.round(ls.value)})`);}
+        else notes.push(`last speed #${ls.rank}`);
+    }
+
+    const sc=speedConfirmedInfo(active,horse);
+    max+=1;
+    if(sc.confirmed){points+=1; notes.push('Speed Confirmed');}
+
+    const ratio=max ? points/max : 0;
+    let level='thin', label='THIN / MIXED';
+    if(max>=4 && ratio>=.72){level='strong';label='STRONG SUPPORT';}
+    else if(max>=4 && ratio>=.50){level='solid';label='SOLID SUPPORT';}
+    else if(max>=3 && ratio>=.30){level='mixed';label='MIXED SUPPORT';}
+
+    return {level,label,points,max,ratio,notes,text:notes.join(' · '),career:ce,surface:surfRank,surfaceName:surfName,best:sb,last:ls,speedConfirmed:sc.confirmed};
+}
+
+function performanceEarningsHTML(field,horse){
+    const s=performanceEarningsSupport(field,horse);
+    const cls=s.level==='strong'?'':' warn';
+    return `<div class="hist-confirm${cls}"><span class="hist-tag">PERFORMANCE + EARNINGS</span>`+
+      `<b>${safe(s.label)}</b> · ${s.points}/${s.max || 0} evidence points`+
+      `<div style="margin-top:5px">${safe(s.text)}. <b>This is support evidence, not a calibrated win probability.</b></div></div>`;
+}
+
 function isFirstTimeStarterForQuality(h){
     const usable=(h.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
     return usable.length===0;
@@ -3420,78 +3388,66 @@ function isFirstTimeStarterForQuality(h){
 
 function raceBetQuality(field, modelTopHorse){
     const active=(field || []).filter(h=>!h.scratched);
-    const hist=historicalConsensus(active, modelTopHorse);
+    const support=performanceEarningsSupport(active,modelTopHorse);
     const fieldSize=active.length;
     const ftsCount=active.filter(isFirstTimeStarterForQuality).length;
 
-    if(hist.level!=="strong"){
-        return {
-            level:"pass",
-            label:"PASS / REVIEW",
-            fieldSize, ftsCount,
-            text:"The tested 3-of-4 historical consensus does not agree with the model pick, so this race does not qualify for a historical bet-quality upgrade."
-        };
+    if(support.level==='thin'){
+        return {level:'pass',label:'PASS / THIN DATA',fieldSize,ftsCount,support,
+            text:'Performance and earnings evidence is too thin or too mixed to upgrade this race.'};
     }
-
-    if(ftsCount===0 && fieldSize<=9){
-        return {
-            level:"strong",
-            label:"BET — STRONG",
-            fieldSize, ftsCount,
-            text:`Best tested race profile: 3-of-4 consensus, no first-time starters, and ${fieldSize} runners. This combination won 22 of 34 historical tests (64.7%).`
-        };
+    if(support.level==='strong' && ftsCount===0 && fieldSize<=9){
+        return {level:'strong',label:'BET — STRONG',fieldSize,ftsCount,support,
+            text:`Top horse has strong performance/earnings support, no first-time starters, and ${fieldSize} runners.`};
     }
-
     if(ftsCount>0 && fieldSize>=10){
-        return {
-            level:"pass",
-            label:"PASS / CAUTION",
-            fieldSize, ftsCount,
-            text:`Consensus is present, but this field has ${ftsCount} first-time starter${ftsCount===1?"":"s"} and ${fieldSize} runners. Both conditions reduced historical reliability; do not treat the horse's paper advantage as maximum confidence.`
-        };
+        return {level:'pass',label:'PASS / CAUTION',fieldSize,ftsCount,support,
+            text:`Performance/earnings support is present, but ${ftsCount} first-time starter${ftsCount===1?'':'s'} and a ${fieldSize}-horse field make the race too uncertain.`};
     }
-
     if(ftsCount>0){
-        return {
-            level:"caution",
-            label:"CAUTION — FTS",
-            fieldSize, ftsCount,
-            text:`Consensus is present, but ${ftsCount} first-time starter${ftsCount===1?" is":"s are"} in the race. In the paired history, consensus picks won 35.0% when an FTS was present versus 62.2% when none were present.`
-        };
+        return {level:'caution',label:'CAUTION — FTS',fieldSize,ftsCount,support,
+            text:`Performance/earnings support is present, but ${ftsCount} first-time starter${ftsCount===1?' is':'s are'} not fully measurable from past performance.`};
     }
-
     if(fieldSize>=10){
-        return {
-            level:"caution",
-            label:"CAUTION — LARGE FIELD",
-            fieldSize, ftsCount,
-            text:`Consensus is present, but the field has ${fieldSize} runners. Consensus picks were 2-for-7 (28.6%) in fields of 10 or more in this sample; small sample, so treat this as caution rather than a hard elimination.`
-        };
+        return {level:'caution',label:'CAUTION — LARGE FIELD',fieldSize,ftsCount,support,
+            text:`Performance/earnings support is present, but the field has ${fieldSize} runners.`};
     }
-
-    return {
-        level:"standard",
-        label:"BET — STANDARD",
-        fieldSize, ftsCount,
-        text:"The historical consensus signal is present, but the race does not meet every condition of the strongest tested profile."
-    };
+    if(support.level==='strong' || support.level==='solid'){
+        return {level:'standard',label:'BET — STANDARD',fieldSize,ftsCount,support,
+            text:`Top horse is supported by ${support.points}/${support.max} performance/earnings evidence points.`};
+    }
+    return {level:'caution',label:'CAUTION — MIXED',fieldSize,ftsCount,support,
+        text:'The top horse has some performance/earnings support, but the evidence is mixed.'};
 }
 
 function raceBetQualityHTML(field, modelTopHorse){
     const q=raceBetQuality(field,modelTopHorse);
-    return `<div class="race-quality rq-${q.level}"><span class="rq-tag">${safe(q.label)}</span>${safe(q.text)} <b>Historical sample rates are not calibrated win probabilities.</b></div>`;
+    return `<div class="race-quality rq-${q.level}"><span class="rq-tag">${safe(q.label)}</span>${safe(q.text)} <b>No historical profile percentage is being assigned to this new evidence set.</b></div>`;
 }
 
-function historicalConsensusHTML(field, modelTopHorse){
-    const h=historicalConsensus(field,modelTopHorse);
-    if(h.level==="strong"){
-        return `<div class="hist-confirm"><span class="hist-tag">BET CONFIDENCE</span><b>STRONG HISTORICAL AGREEMENT.</b> ${safe(h.text)}</div>`;
-    }
-    if(h.level==="disagree"){
-        return `<div class="hist-confirm warn"><span class="hist-tag">CHECK</span><b>MODEL / HISTORICAL DISAGREEMENT.</b> ${safe(h.text)}</div>`;
-    }
-    return `<div class="hist-confirm neutral"><b>Historical confirmation:</b> ${safe(h.text)}</div>`;
+function openProbability(raceNum){
+    const d=probabilityDetails[String(raceNum)];
+    if(!d) return;
+    $("probContent").innerHTML=`
+      <h2 id="probTitle" style="font-size:18px;margin-right:30px;">Race ${safe(raceNum)} — Model Probability</h2>
+      <div class="model-prob" style="margin:8px 0;">${(d.probability*100).toFixed(1)}%</div>
+      <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
+      <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
+      <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
+      ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
+      ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
+      ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
+      <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Use it for ranking, not as a betting edge or fair odds.</div>
+    `;
+    $("probOverlay").classList.add("show");
 }
+
+$("probCloseBtn").addEventListener("click",()=>$("probOverlay").classList.remove("show"));
+$("probOverlay").addEventListener("click",e=>{if(e.target===$("probOverlay")) $("probOverlay").classList.remove("show");});
+
+/* ============================================================
+   EXPLANATION
+============================================================ */
 
 function buildReason(top,second,field){
 
@@ -3611,7 +3567,7 @@ function classificationEvidence(item,scored,field){
     const pp=(horse.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
     const rank=scored.indexOf(item)+1;
 
-    // Restore the logic from the supplied Overlay Board:
+    // Market-frame classification baseline:
     // the MARKET creates the elimination cut. 12-1+ OR outside the top five
     // is a Pretender candidate. Lack of evidence can rescue the horse to
     // Questionable, but it does not promote it to Contender.
@@ -3659,7 +3615,7 @@ function classificationEvidence(item,scored,field){
         return {label:"PRETENDER",reason:`Market elimination evidence: ${cutReasons.join("; ")}. Has usable past performances and not enough recent comparable form to override the cut.`};
     }
 
-    // The supplied Overlay Board kept a horse beaten 10L+ as Questionable,
+    // A horse beaten 10L+ remains Questionable rather than automatically eliminated,
     // not Pretender. Preserve that caution.
     if(pp.length){
         const targetSurface=horse.currentSurface;
@@ -3681,98 +3637,7 @@ function classificationEvidence(item,scored,field){
 }
 
 
-/*
-Independent Claude / Overlay Board frozen 6 September 2026 cross-check.
-This does NOT alter the Horse Handicap score. It reproduces the supplied
-earnings-per-start + morning-line-favorite rule as a second opinion.
-Field 101 is lifetime earnings; fields 97-100 are lifetime starts/W/P/S.
-*/
-function claudeCrossCheck(field){
-    const live = (field || []).filter(h => !h.scratched);
-
-    // Career earnings per start. Lifetime starts are field 97, lifetime
-    // earnings field 101, both already parsed into the row.
-    const rated = live
-        .filter(h => number(h.starts) > 0 && number(h.careerEarnings) > 0)
-        .map(h => ({horse: h, eps: number(h.careerEarnings) / number(h.starts)}))
-        .sort((a, b) => b.eps - a.eps);
-
-    if(rated.length < 3 || rated.length / live.length < .5){
-        return {pick:null, line:"NONE",
-                reason:"Too little career record for the earnings-per-start cross-check."};
-    }
-
-    const priced = live.filter(h => oddsDecimal(h.odds) !== null);
-    if(!priced.length){
-        return {pick:null, line:"NONE", reason:"No morning line available."};
-    }
-
-    const fav = priced.slice().sort((a,b) => oddsDecimal(a.odds) - oddsDecimal(b.odds))[0];
-    const favRow = rated.find(r => r.horse.id === fav.id);
-    if(!favRow){
-        return {pick:null, line:"NONE",
-                reason:"Morning-line favorite has no career earnings record."};
-    }
-
-    const rank = 1 + rated.filter(r => r.eps > favRow.eps).length;
-    const mlOK = oddsDecimal(fav.odds) <= 2.5;
-
-    // FILTER D — sole top best speed figure in the field.
-    const figures = live
-        .map(h => number(h.bestSpeed))
-        .filter(v => v > 0)
-        .sort((a, b) => b - a);
-
-    let figureOK = false;
-    let figureWhy = "";
-    if(figures.length < 3){
-        figureWhy = "fewer than three runners carry a best speed figure";
-    }else if(figures[0] === figures[1]){
-        figureWhy = "top best speed figure is tied";
-    }else if(number(fav.bestSpeed) !== figures[0]){
-        figureWhy = "does not hold the top best speed figure";
-    }else{
-        figureOK = true;
-    }
-
-    if(rank === 1 && mlOK && figureOK){
-        return {pick:fav, line:"PICK", rank, eps:favRow.eps,
-                bestSpeed:number(fav.bestSpeed), topFigure:figures[0],
-                reason:"Morning-line favorite is #1 in career earnings per start, "
-                     + "is 5/2 or shorter, and holds the field's single best speed figure."};
-    }
-
-    if(rank === 2){
-        return {pick:fav, line:"PRICE", rank, eps:favRow.eps,
-                bestSpeed:number(fav.bestSpeed), topFigure:figures[0] || 0,
-                reason:"Morning-line favorite is #2 in career earnings per start — "
-                     + "Overlay-style price play, a separate and unproven line."};
-    }
-
-    const missing = [];
-    if(rank > 2) missing.push("ranks #" + rank + " in career earnings per start");
-    if(!mlOK) missing.push("M/L above 5/2");
-    if(!figureOK) missing.push(figureWhy);
-
-    return {pick:null, line:"NONE", rank, eps:favRow.eps,
-            bestSpeed:number(fav.bestSpeed), topFigure:figures[0] || 0,
-            reason:"No Overlay-style play: morning-line favorite " + missing.join(", ") + "."};
-}
-
-function claudeCrossCheckHTML(field,topHorse){
-    const c=claudeCrossCheck(field);
-    const sc=speedConfirmedInfo(field,topHorse);
-    if(!c.pick){
-        const caution=!sc.confirmed ? ' <span class="badge">NO CROSS-CHECK SUPPORT</span>' : '';
-        return `<div class="reason-box"><b>Claude cross-check:</b> No independent selection.${caution}<br><span class="note">${safe(c.reason)} Horse Handicap scoring is unchanged.</span></div>`;
-    }
-    const agree=c.pick.id===topHorse.id;
-    const label=agree ? "CONSENSUS" : (sc.confirmed ? "OUR SPEED EDGE" : "DISAGREEMENT");
-    const cls=agree ? "badge-green" : "badge-blue";
-    return `<div class="reason-box"><b>Claude cross-check:</b> <span class="badge ${cls}">${label}</span> `+
-      `${safe(c.line)} — #${safe(c.pick.post)} ${safe(c.pick.horse)}.`+
-      `<br><span class="note">${safe(c.reason)} This is a second opinion only; it does not change model probability.</span></div>`;
-}
+/* Performance/earnings support is defined above and uses only card data. */
 
 function decisionAlsoWithShot(scored,classMap,top){
     const live=scored.filter(item=>
@@ -4093,22 +3958,20 @@ function computeRaceCard(){
             pass:passFlag,
             decision,
             marketRank,
-            historical:historicalConsensus(activeField,top.horse),
-            raceQuality:raceBetQuality(activeField,top.horse),
-            calibrated:calibratedWinEstimate(activeField,top.horse)
+            performanceSupport:performanceEarningsSupport(activeField,top.horse),
+            raceQuality:raceBetQuality(activeField,top.horse)
         };
 
         const decisionClassMap={};
         scored.forEach(item=>{ decisionClassMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
 
         const betQ=raceBetQuality(activeField,top.horse);
-        const claudeCheck=claudeCrossCheck(activeField);
+        const perfSupport=performanceEarningsSupport(activeField,top.horse);
         betRaceRows.push({
             race:String(raceNum), horse:top.horse, quality:betQ,
             pass:passFlag, close:closeRace, marketRank,
             speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed,
-            claudeAgree:!!(claudeCheck.pick && claudeCheck.pick.id===top.horse.id),
-            claudeLine:claudeCheck.line
+            performanceSupport:perfSupport
         });
 
 
@@ -4244,10 +4107,8 @@ function computeRaceCard(){
             ${top.horse.surfaceChanged ? `<div class="warning-box"><b>Weather/surface change:</b> ${safe(surfaceLabel(top.horse.originalSurface))} → ${safe(surfaceLabel(top.horse.currentSurface))}. Surface Fit, condition fit, surface-specific Best Speed, rankings and probabilities were recomputed.</div>` : ``}
 
 
-            ${historicalConsensusHTML(activeField, top.horse)}
-            ${claudeCrossCheckHTML(activeField, top.horse)}
+            ${performanceEarningsHTML(activeField, top.horse)}
             ${raceBetQualityHTML(activeField, top.horse)}
-            ${calibratedProbabilityHTML(activeField, top.horse)}
 
 
             <div class="reason-box">
@@ -4352,22 +4213,22 @@ function computeRaceCard(){
         const ap=a.pass?4:(betOrder[a.quality.level]??3);
         const bp=b.pass?4:(betOrder[b.quality.level]??3);
         return ap-bp ||
+               ((b.performanceSupport?.ratio)||0)-((a.performanceSupport?.ratio)||0) ||
                (b.speedConfirmed?1:0)-(a.speedConfirmed?1:0) ||
-               (b.claudeAgree?1:0)-(a.claudeAgree?1:0) ||
                number(a.race)-number(b.race);
     });
     const bestBetRaces=rankedBetRaces.filter(x=>!x.pass && (x.quality.level==="strong" || x.quality.level==="standard"));
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        Ranked by the existing race-quality test, then Speed Confirmed, then independent Claude/Overlay agreement. A race-level PASS still overrides this list.
+        Ranked by race quality, then Performance + Earnings support, then Speed Confirmed. A race-level PASS still overrides this list.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
           <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
           <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.quality.label)}</span>
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
-          ${x.claudeAgree?'<span class="badge badge-green">CLAUDE AGREES</span>':''}
+          ${x.performanceSupport?.level==='strong'?'<span class="badge badge-green">STRONG P+E</span>':(x.performanceSupport?.level==='solid'?'<span class="badge badge-blue">SOLID P+E</span>':'')}
           ${x.close?'<span class="badge">CLOSE RACE</span>':''}
           <div class="metric-line">${safe(x.quality.text)}</div>
         </div>`).join("") :
@@ -4955,10 +4816,12 @@ function totalTurfRecordHTML(horse, compact=false){
     if(!horse) return "";
     const total = `${horse.starts || 0}-${horse.wins || 0}-${horse.places || 0}-${horse.shows || 0}`;
     const turf = `${horse.turfStarts || 0}-${horse.turfWins || 0}-${horse.turfPlaces || 0}-${horse.turfShows || 0}`;
+    const wet = `${horse.wetStarts || 0}-${horse.wetWins || 0}-${horse.wetPlaces || 0}-${horse.wetShows || 0}`;
     const totalMoney = formatRecordMoney(horse.careerEarnings);
     const turfMoney = formatRecordMoney(horse.turfEarnings);
+    const wetMoney = formatRecordMoney(horse.wetEarnings);
     if(compact){
-        return `Total <b>${total}</b> · ${totalMoney}<br>Turf <b>${turf}</b> · ${turfMoney}`;
+        return `Total <b>${total}</b> · ${totalMoney}<br>Turf <b>${turf}</b> · ${turfMoney}<br>Off track <b>${wet}</b> · ${wetMoney}`;
     }
     return `
         <div class="h2h-stat">
@@ -4966,6 +4829,9 @@ function totalTurfRecordHTML(horse, compact=false){
         </div>
         <div class="h2h-stat">
             Turf record: <b>${turf}</b> &nbsp; Turf earnings: <b>${turfMoney}</b>
+        </div>
+        <div class="h2h-stat">
+            Off-track record: <b>${wet}</b> &nbsp; Off-track earnings: <b>${wetMoney}</b>
         </div>
     `;
 }
@@ -5588,6 +5454,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.14 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.15 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
