@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.17 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.18 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.17</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.18</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.17 fixes Compute Race Card and keeps Decision Board support based on the horse's own performances and earnings. Career earnings per start, surface-specific earnings per start, surface-specific Best Speed, last speed and Speed Confirmed are shown as evidence. Turf records use BRIS fields 75-79; off-track records use 80-84. Surface changes still trigger a full recomputation.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.18 adds complete race conditions and an entry-level class test to the Full/Live Race Cards. Surface, distance, race type, today's race classification, purse/claiming price, non-winners/maiden/allowance conditions, and eligibility text are displayed. Each horse is marked UP / DOWN / SAME versus its last race and receives an Entry Level Fit read based on whether it has competed effectively at a similar or tougher level. Performance + earnings logic, parser/RSS/H2H/PP behavior, and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -1163,7 +1163,11 @@ function newRow(partial = {}){
         currentTrackCondition:"",
         currentDistance:0,
         raceType:"",
+        ageSex:"",
+        currentRaceClass:"",
+        raceConditions:"",
         purse:0,
+        claimingPrice:0,
         daysSinceLast:0,
         tjStarts:0,
         tjWins:0,
@@ -1878,6 +1882,12 @@ function loadDRF(text){
                 currentTrackCondition:"",
                 currentDistance:getNumber(fields,6),
                 raceType:getField(fields,9),
+                ageSex:getField(fields,10),
+                currentRaceClass:getField(fields,11),
+                raceConditions:[225,226,227,228,229,230]
+                    .map(n=>getField(fields,n))
+                    .filter(Boolean)
+                    .join(" "),
                 purse:getNumber(fields,12),
                 claimingPrice:getNumber(fields,13),
 
@@ -3689,16 +3699,144 @@ function trainerMultipleEntryMap(field){
     return counts;
 }
 
+
+function money0(v){
+    const n=number(v);
+    return n>0 ? "$"+Math.round(n).toLocaleString() : "";
+}
+
+function raceTypeLabel(code){
+    const c=String(code||"").trim().toUpperCase();
+    const map={
+        "G1":"Grade 1 Stakes","G2":"Grade 2 Stakes","G3":"Grade 3 Stakes",
+        "N":"Stakes / Handicap","A":"Allowance","R":"Starter Allowance",
+        "T":"Starter Handicap","C":"Claiming","CO":"Optional Claiming",
+        "S":"Maiden Special Weight","M":"Maiden Claiming",
+        "AO":"Allowance Optional Claiming","MO":"Maiden Optional Claiming",
+        "NO":"Optional Claiming Stakes"
+    };
+    return map[c] || c || "Race";
+}
+
+function cleanRaceConditions(text){
+    return String(text||"")
+        .replace(/;/g,",")
+        .replace(/\s+/g," ")
+        .trim();
+}
+
+function raceConditionsHTML(horse){
+    if(!horse) return "";
+    const parts=[];
+    parts.push(`<b>${safe(surfaceLabel(horse.currentSurface))}</b>`);
+    if(number(horse.currentDistance)>0) parts.push(`<b>${safe(formatDistance(horse.currentDistance))}</b>`);
+    parts.push(`<b>${safe(raceTypeLabel(horse.raceType))}</b>`);
+    if(horse.currentRaceClass) parts.push(`<b>${safe(horse.currentRaceClass)}</b>`);
+    if(number(horse.purse)>0) parts.push(`Purse <b>${safe(money0(horse.purse))}</b>`);
+    if(number(horse.claimingPrice)>0) parts.push(`Claiming price <b>${safe(money0(horse.claimingPrice))}</b>`);
+    const cond=cleanRaceConditions(horse.raceConditions);
+    return `
+      <div class="metric-line" style="margin:6px 0 7px;line-height:1.55;">
+        ${parts.join(" &nbsp; | &nbsp; ")}
+      </div>
+      ${cond ? `<div class="note" style="margin:0 0 10px;line-height:1.55;"><b>Race conditions:</b> ${safe(cond)}</div>` : ``}
+    `;
+}
+
+function classStrengthFromValues(purse,claiming){
+    const p=number(purse), c=number(claiming);
+    if(!p && !c) return 0;
+    return Math.log10(1+p)*10 + Math.log10(1+c)*4;
+}
+
+function todayClassStrength(horse){
+    return classStrengthFromValues(horse.purse,horse.claimingPrice);
+}
+
+function ppClassStrength(pp){
+    return classStrengthFromValues(pp && pp.purse, pp && pp.claimingPrice);
+}
+
+function classMoveRead(horse){
+    const last=(horse.ppRaces||[]).find(p=>ppClassStrength(p)>0);
+    const now=todayClassStrength(horse);
+    const prev=last ? ppClassStrength(last) : 0;
+    if(!now || !prev) return {label:"UNKNOWN",detail:"insufficient class data"};
+    const delta=now-prev;
+    // The log-strength scale is intentionally conservative. Small purse/price
+    // changes are treated as roughly the same level rather than false precision.
+    if(delta>0.75) return {label:"UP",detail:"higher level than last start"};
+    if(delta<-0.75) return {label:"DOWN",detail:"lower level than last start"};
+    return {label:"SAME",detail:"about the same level as last start"};
+}
+
+function entryLevelFit(horse){
+    const now=todayClassStrength(horse);
+    const recent=(horse.ppRaces||[]).slice(0,5)
+        .map(p=>({p, strength:ppClassStrength(p)}))
+        .filter(x=>x.strength>0);
+
+    if(number(horse.starts)===0 || !recent.length || !now){
+        return {label:"UNKNOWN",detail:"not enough race/class history"};
+    }
+
+    // "Similar or tougher" means within a modest tolerance of today's class
+    // strength or above it. A competitive effort is top 4 OR within 5 lengths.
+    const comparable=recent.filter(x=>x.strength >= now-0.75);
+    const competitive=comparable.filter(x=>{
+        const fin=number(x.p.fin);
+        const bl=number(x.p.beatenLengths);
+        return (fin>0 && fin<=4) || (bl>=0 && bl<=5);
+    });
+
+    const move=classMoveRead(horse);
+
+    if(competitive.length>=2){
+        return {label:"PROVEN",detail:`competitive ${competitive.length} times at a similar or tougher level recently`};
+    }
+    if(competitive.length===1){
+        return {label:"CAN COMPETE",detail:"one recent competitive effort at a similar or tougher level"};
+    }
+    if(comparable.length>=2){
+        return {label:"QUESTIONABLE",detail:`has faced this level or tougher ${comparable.length} times recently without a strong competitive finish`};
+    }
+    if(move.label==="DOWN"){
+        return {label:"CLASS RELIEF",detail:"dropping from a tougher recent level; fit still depends on current form"};
+    }
+    if(move.label==="UP"){
+        return {label:"UNPROVEN UP",detail:"moving up and has little evidence at today's stronger level"};
+    }
+    return {label:"UNPROVEN",detail:"limited evidence against today's entry level"};
+}
+
+function classMoveBadge(horse){
+    const m=classMoveRead(horse);
+    const cls=m.label==="UP" ? "badge-red" : m.label==="DOWN" ? "badge-green" : m.label==="SAME" ? "badge-blue" : "";
+    return `<span class="badge ${cls}" title="${safe(m.detail)}">${safe(m.label)}</span>`;
+}
+
+function entryLevelHTML(horse){
+    const e=entryLevelFit(horse);
+    const cls=e.label==="PROVEN" || e.label==="CAN COMPETE" || e.label==="CLASS RELIEF"
+        ? "badge-green"
+        : e.label==="QUESTIONABLE" || e.label==="UNPROVEN UP"
+        ? "badge-red"
+        : "badge-blue";
+    return `<span class="badge ${cls}" title="${safe(e.detail)}">${safe(e.label)}</span><div class="note" style="font-size:10px;margin-top:3px;">${safe(e.detail)}</div>`;
+}
+
 function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     const trainerCounts=trainerMultipleEntryMap(field);
     const ordered=[...field].sort((a,b)=>number(a.post)-number(b.post));
     const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
+    const raceHorse=shown.find(h=>!h.scratched) || shown[0] || field[0];
     return `
     <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
       <h3><span class="race-number-link" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for all horses in the selected field view">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)
       ${shown.some(h=>h.surfaceChanged) ? `<span class="badge badge-red">SURFACE CHANGED — ${safe(surfaceLabel((shown.find(h=>h.surfaceChanged)||shown[0]).currentSurface))}</span>` : ``}</h3>
+      ${raceConditionsHTML(raceHorse)}
       <div class="table-wrap"><table class="compact-table"><thead><tr>
-        <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Class</th>
+        <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Move</th><th>Entry Level Fit</th><th>Status</th>
       </tr></thead><tbody>
       ${shown.map(h=>{
           const item=scored.find(x=>x.horse.id===h.id);
@@ -3710,10 +3848,20 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
             <td><span style="font-weight:700;cursor:pointer;text-decoration:underline dotted;" onclick="openPP(${h.id})">${safe(h.horse)}</span>${h.jockeyChanged?'<span class="badge badge-red">NEW RIDER</span>':''}${multi?'<span class="trainer-multi">TRAINER MULTIPLE</span>':''}</td>
             <td>${item?scored.indexOf(item)+1:'-'}</td>
             <td>${item?(item.probability*100).toFixed(1)+'%':'-'}</td>
-            <td>${safe(h.score||h.primePower||'-')}</td><td>${safe(h.lastSpeed||'-')}</td><td>${safe(h.odds||'-')}</td><td>${status}</td>
+            <td>${safe(h.score||h.primePower||'-')}</td>
+            <td>${safe(h.lastSpeed||'-')}</td>
+            <td>${safe(h.odds||'-')}</td>
+            <td>${classMoveBadge(h)}</td>
+            <td>${entryLevelHTML(h)}</td>
+            <td>${status}</td>
           </tr>`;
       }).join('')}
       </tbody></table></div>
+      <div class="note" style="margin-top:8px;">
+        <b>Move</b> compares today's purse/claiming level with the horse's most recent usable class level.
+        <b>Entry Level Fit</b> asks whether the horse has finished competitively (top 4 or within 5 lengths) at a similar or tougher level in its recent races.
+        It is an evidence check, not a guarantee.
+      </div>
     </div>`;
 }
 
@@ -3756,6 +3904,8 @@ function renderRaceHorsePP(horse){
           &nbsp; | &nbsp; Current Speed: <b>${safe(horse.lastSpeed || "N/A")}</b>
           &nbsp; | &nbsp; Trainer: <b>${safe(horse.trainer || "N/A")}</b>
           &nbsp; | &nbsp; Jockey: <b>${safe(horse.jockey || "N/A")}</b>
+          <br>Class move: ${classMoveBadge(horse)}
+          &nbsp; | &nbsp; Entry level fit: ${entryLevelHTML(horse)}
         </div>
         ${races.length ? `
         <div class="table-wrap">
@@ -3807,6 +3957,7 @@ function openRacePP(raceNum){
 
     $("ppContent").innerHTML = `
       <h2 style="margin-right:30px;font-size:20px;">Race ${safe(raceNum)} — ${liveOnly ? "Live Field Past Performances" : "Full Field Past Performances"}</h2>
+      ${raceConditionsHTML(shown.find(h=>!h.scratched) || shown[0])}
       <div class="note" style="margin-bottom:10px;">
         ${liveOnly ? "Showing Contenders and Questionable / Live Longshots; Pretenders are hidden." : "Showing every runner in the field."}
         Tap a horse name on the Race Card when you want only that horse's Past Performances.
@@ -4110,6 +4261,12 @@ function computeRaceCard(){
 
             </div>
 
+            ${raceConditionsHTML(top.horse)}
+            <div class="metric-line">
+                Class move: ${classMoveBadge(top.horse)}
+                &nbsp; | &nbsp;
+                Entry level fit: ${entryLevelHTML(top.horse)}
+            </div>
             <div class="metric-line">
                 Surface: <b>${safe(surfaceLabel(top.horse.currentSurface))}</b>
                 ${top.horse.surfaceChanged ? `<span class="badge badge-red">SURFACE CHANGED — RECOMPUTED</span>` : ``}
@@ -4271,10 +4428,9 @@ function computeRaceCard(){
 
                 The percentage is an uncalibrated relative model share, not a
                 proven win probability. Tap it for the horse's data quality and
-                interpretation. PASS is automatic for specialty/jump-distance
-                races, poor core-data coverage, fields with many first-time
-                starters, or a changed track condition with no matching speed
-                evidence. PRICE CANDIDATE means model rank #1 is morning-line
+                interpretation. PASS is automatic only for specialty/jump-distance races, poor core-data
+                coverage, or fields with many first-time starters. Exact-condition
+                mismatches are warnings rather than a separate contradictory PASS. PRICE CANDIDATE means model rank #1 is morning-line
                 rank #3 or higher; it is a review flag, not a proven edge.
                 Tap the horse name to jump to that race's Full Field and open the horse's complete Past Performances.
 
@@ -5473,6 +5629,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.17 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.18 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
