@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.11 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.12 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.11</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.12</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.11 corrects the Overlay cross-check to the frozen 6 September 2026 rule: A = M/L favorite is #1 in career earnings per start at 5/2 or shorter; D = that same favorite owns the field's sole top best-speed figure. Price Play = M/L favorite ranks #2 in earnings per start. Horse Handicap scoring and classification are unchanged.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.12 keeps the corrected frozen Overlay cross-check and improves Previous Direct Meetings: each shared-race block now shows distance, class, beaten-length context, and the BRIS chart comment for every current runner in that prior race. Comments containing trouble language are highlighted red. Horse Handicap scoring and classification are unchanged.
 </p>
 </header>
 
@@ -1797,6 +1797,7 @@ function loadDRF(text){
                     entrants:getNumber(fields,346+i),
                     post:getField(fields,356+i),
                     fin:getField(fields,616+i),
+                    beatenLengths:getNumber(fields,686+i),
                     speed:getNumber(fields,846+i),
                     pace2:getNumber(fields,766+i),
                     pace4:getNumber(fields,776+i),
@@ -4498,6 +4499,8 @@ function currentRaceH2HGroups(field){
                         date:pp.date,
                         raceNum:pp.raceNum,
                         track:pp.track || "",
+                        dist:pp.dist || 0,
+                        raceClass:pp.raceClass || "",
                         runners:[]
                     }
                 );
@@ -4554,6 +4557,69 @@ function currentRaceH2HGroups(field){
 }
 
 
+
+function h2hTroubleComment(comment){
+
+    const text = String(comment || "").trim();
+    if(!text) return false;
+
+    /*
+      Trouble language is intentionally display-only. It does not change
+      model score or classification; it simply prevents the chart trip
+      from being reduced to finish position alone.
+    */
+    const trouble = /\b(stead(?:ied|y)|check(?:ed|ing)?|blocked|no room|bump(?:ed|ing)?|stumbled?|stumble|broke slow(?:ly)?|slow start|off slow(?:ly)?|pinched|squeezed|clipped|heels?|shuffled|traffic|forced|carried|shut off|boxed|crowded|brushed|hit gate|dwelt|hesitated|awkward(?:ly)?|bobbl(?:ed|ing)|stopped|eased|pulled up|lost action|rank)\b/i;
+
+    return trouble.test(text);
+}
+
+function renderH2HChartComment(item){
+
+    const comment = String((item && item.pp && item.pp.comment) || "").trim();
+    const horseName = safe(item && item.horse ? item.horse.horse : "Horse");
+
+    if(!comment){
+        return `
+            <div class="h2h-stat" style="margin-top:4px;opacity:.72;">
+                <b>${horseName}:</b> no chart comment
+            </div>
+        `;
+    }
+
+    const trouble = h2hTroubleComment(comment);
+
+    return `
+        <div class="h2h-stat" style="
+            margin-top:4px;
+            ${trouble ? "color:#b00020;font-weight:700;" : ""}
+        ">
+            <b>${horseName}:</b> ${safe(comment)}
+        </div>
+    `;
+}
+
+function h2hMarginBetween(a,b){
+
+    const aLen = number(a && a.pp ? a.pp.beatenLengths : 0);
+    const bLen = number(b && b.pp ? b.pp.beatenLengths : 0);
+
+    if(!Number.isFinite(aLen) || !Number.isFinite(bLen)) return null;
+
+    const diff = Math.abs(bLen - aLen);
+    if(!(diff > 0)) return null;
+
+    return Math.round(diff * 100) / 100;
+}
+
+function formatH2HLengths(value){
+
+    const n = number(value);
+    if(!(n > 0)) return "";
+
+    const rounded = Math.round(n * 100) / 100;
+    return (Number.isInteger(rounded) ? rounded.toFixed(0) : String(rounded)) + "L";
+}
+
 function renderH2HGroup(group){
 
     const ordered = [...group.runners].sort((a,b)=>{
@@ -4580,8 +4646,6 @@ function renderH2HGroup(group){
             return;
         }
 
-        const beaten = [];
-
         ordered.forEach((b,j)=>{
 
             if(i === j){
@@ -4591,22 +4655,20 @@ function renderH2HGroup(group){
             const bf = h2hFinishNumber(b.pp.fin);
 
             if(bf !== null && af < bf){
-                beaten.push(
-                    safe(b.horse.horse)
-                );
+
+                const margin = h2hMarginBetween(a,b);
+                const marginText = margin ? ` by ${formatH2HLengths(margin)}` : "";
+
+                relationshipLines.push(`
+                    <div class="h2h-stat" style="margin-top:5px;">
+                        <b>${safe(a.horse.horse)} (${h2hOrdinal(a.pp.fin)})</b>
+                        beat${marginText}
+                        <b>${safe(b.horse.horse)} (${h2hOrdinal(b.pp.fin)})</b>
+                    </div>
+                `);
             }
 
         });
-
-        if(beaten.length){
-            relationshipLines.push(`
-                <div class="h2h-stat">
-                    <b>${safe(a.horse.horse)}</b>
-                    previously beat
-                    <b>${beaten.join(", ")}</b>
-                </div>
-            `);
-        }
 
     });
 
@@ -4628,11 +4690,22 @@ function renderH2HGroup(group){
 
             <span>
                 <b>${h2hOrdinal(item.pp.fin)}</b>
+                ${number(item.pp.beatenLengths) > 0 ? ` · ${safe(formatH2HLengths(item.pp.beatenLengths))} back` : ""}
             </span>
 
         </div>
 
     `).join("");
+
+
+    const chartComments = ordered.map(renderH2HChartComment).join("");
+
+    const meetingMeta = [
+        group.track ? safe(group.track) : "",
+        group.raceNum ? `R${safe(group.raceNum)}` : "",
+        group.dist ? safe(formatDistance(group.dist)) : "",
+        group.raceClass ? safe(group.raceClass) : ""
+    ].filter(Boolean).join(" · ");
 
 
     return `
@@ -4642,12 +4715,7 @@ function renderH2HGroup(group){
             <h3>
                 Previous Direct Meeting —
                 ${safe(formatDate(group.date))}
-                R${safe(group.raceNum)}
-                ${
-                    group.track
-                    ? " · " + safe(group.track)
-                    : ""
-                }
+                ${meetingMeta ? " · " + meetingMeta : ""}
             </h3>
 
             ${finishRows}
@@ -4670,6 +4738,10 @@ function renderH2HGroup(group){
                     </div>
                     `
                 }
+
+                <div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--paper-line);">
+                    ${chartComments}
+                </div>
 
             </div>
 
@@ -5422,6 +5494,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.11 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.12 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
