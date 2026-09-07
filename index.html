@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.10 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.11 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.10</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.11</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.10 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.11 corrects the Overlay cross-check to the frozen 6 September 2026 rule: A = M/L favorite is #1 in career earnings per start at 5/2 or shorter; D = that same favorite owns the field's sole top best-speed figure. Price Play = M/L favorite ranks #2 in earnings per start. Horse Handicap scoring and classification are unchanged.
 </p>
 </header>
 
@@ -3603,61 +3603,81 @@ function classificationEvidence(item,scored,field){
 
 
 /*
-Independent Claude / Overlay Board v1.30 cross-check.
+Independent Claude / Overlay Board frozen 6 September 2026 cross-check.
 This does NOT alter the Horse Handicap score. It reproduces the supplied
 earnings-per-start + morning-line-favorite rule as a second opinion.
 Field 101 is lifetime earnings; fields 97-100 are lifetime starts/W/P/S.
 */
 function claudeCrossCheck(field){
-    const live=(field || []).filter(h=>!h.scratched);
-    const rated=live
-      .filter(h=>number(h.starts)>0 && number(h.careerEarnings)>0)
-      .map(h=>({horse:h,eps:number(h.careerEarnings)/number(h.starts)}))
-      .sort((a,b)=>b.eps-a.eps);
+    const live = (field || []).filter(h => !h.scratched);
 
-    if(rated.length<3 || rated.length/live.length<.5){
-        return {pick:null,line:"NONE",reason:"Too little career record for the earnings-per-start cross-check."};
-    }
-    const boardFinishes=live.reduce((n,h)=>n+number(h.wins)+number(h.places)+number(h.shows),0);
-    if(boardFinishes<1){
-        return {pick:null,line:"NONE",reason:"No top-three career finish in the field; earnings per start is not a reliable class proxy here."};
-    }
-    const priced=live.filter(h=>oddsDecimal(h.odds)!==null);
-    if(!priced.length) return {pick:null,line:"NONE",reason:"No morning line available."};
-    const fav=priced.slice().sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds))[0];
-    const favRow=rated.find(r=>r.horse.id===fav.id);
-    if(!favRow) return {pick:null,line:"NONE",reason:"Morning-line favorite has no career earnings record."};
+    // Career earnings per start. Lifetime starts are field 97, lifetime
+    // earnings field 101, both already parsed into the row.
+    const rated = live
+        .filter(h => number(h.starts) > 0 && number(h.careerEarnings) > 0)
+        .map(h => ({horse: h, eps: number(h.careerEarnings) / number(h.starts)}))
+        .sort((a, b) => b.eps - a.eps);
 
-    const rank=1+rated.filter(r=>r.eps>favRow.eps).length;
-    const mlOK=oddsDecimal(fav.odds)<=2.5;
-
-    // Match Overlay v1.30 class-fit definition from the BRIS PP rows.
-    const todayClaim=number(fav.claimingPrice);
-    const todayFamily=String(fav.raceType || "").toUpperCase();
-    const pp=(fav.ppRaces || []).slice(0,4);
-    let classFit=0;
-    pp.forEach(pr=>{
-        const pastClaim=number(pr.claim);
-        let levelOK=true;
-        if(todayClaim>0 && pastClaim>0) levelOK=pastClaim>=.6*todayClaim;
-        const fin=number(pr.fin);
-        const margin=number(pr.margin);
-        const competitive=(fin>0 && fin<=3) || (margin>=0 && margin<=3);
-        if(levelOK && competitive) classFit++;
-    });
-    const fitOK=pp.length<3 || classFit>=2;
-    const filtersPass=mlOK && fitOK; // final odds are intentionally not used pre-race.
-
-    if(rank===1 && filtersPass){
-        return {pick:fav,line:"PICK",rank,eps:favRow.eps,classFit,classSeen:pp.length,
-                reason:"Morning-line favorite is #1 in career earnings/start and passes the price/class filters."};
+    if(rated.length < 3 || rated.length / live.length < .5){
+        return {pick:null, line:"NONE",
+                reason:"Too little career record for the earnings-per-start cross-check."};
     }
-    if(rank===2 && !filtersPass){
-        return {pick:fav,line:"PRICE",rank,eps:favRow.eps,classFit,classSeen:pp.length,
-                reason:"Morning-line favorite is #2 in career earnings/start and fails at least one primary filter — Overlay-style price play."};
+
+    const priced = live.filter(h => oddsDecimal(h.odds) !== null);
+    if(!priced.length){
+        return {pick:null, line:"NONE", reason:"No morning line available."};
     }
-    return {pick:null,line:"NONE",rank,eps:favRow.eps,classFit,classSeen:pp.length,
-            reason:`No Overlay-style play: morning-line favorite ranks #${rank} in career earnings/start${!mlOK?", M/L above 5/2":""}${!fitOK?", weak recent class fit":""}.`};
+
+    const fav = priced.slice().sort((a,b) => oddsDecimal(a.odds) - oddsDecimal(b.odds))[0];
+    const favRow = rated.find(r => r.horse.id === fav.id);
+    if(!favRow){
+        return {pick:null, line:"NONE",
+                reason:"Morning-line favorite has no career earnings record."};
+    }
+
+    const rank = 1 + rated.filter(r => r.eps > favRow.eps).length;
+    const mlOK = oddsDecimal(fav.odds) <= 2.5;
+
+    // FILTER D — sole top best speed figure in the field.
+    const figures = live
+        .map(h => number(h.bestSpeed))
+        .filter(v => v > 0)
+        .sort((a, b) => b - a);
+
+    let figureOK = false;
+    let figureWhy = "";
+    if(figures.length < 3){
+        figureWhy = "fewer than three runners carry a best speed figure";
+    }else if(figures[0] === figures[1]){
+        figureWhy = "top best speed figure is tied";
+    }else if(number(fav.bestSpeed) !== figures[0]){
+        figureWhy = "does not hold the top best speed figure";
+    }else{
+        figureOK = true;
+    }
+
+    if(rank === 1 && mlOK && figureOK){
+        return {pick:fav, line:"PICK", rank, eps:favRow.eps,
+                bestSpeed:number(fav.bestSpeed), topFigure:figures[0],
+                reason:"Morning-line favorite is #1 in career earnings per start, "
+                     + "is 5/2 or shorter, and holds the field's single best speed figure."};
+    }
+
+    if(rank === 2){
+        return {pick:fav, line:"PRICE", rank, eps:favRow.eps,
+                bestSpeed:number(fav.bestSpeed), topFigure:figures[0] || 0,
+                reason:"Morning-line favorite is #2 in career earnings per start — "
+                     + "Overlay-style price play, a separate and unproven line."};
+    }
+
+    const missing = [];
+    if(rank > 2) missing.push("ranks #" + rank + " in career earnings per start");
+    if(!mlOK) missing.push("M/L above 5/2");
+    if(!figureOK) missing.push(figureWhy);
+
+    return {pick:null, line:"NONE", rank, eps:favRow.eps,
+            bestSpeed:number(fav.bestSpeed), topFigure:figures[0] || 0,
+            reason:"No Overlay-style play: morning-line favorite " + missing.join(", ") + "."};
 }
 
 function claudeCrossCheckHTML(field,topHorse){
@@ -5402,6 +5422,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.10 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.11 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
