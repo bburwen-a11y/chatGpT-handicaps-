@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.15 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.16 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.15</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.16</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.15 bases Decision Board support on the horse's own performances and earnings rather than comparison labels. Career earnings per start, surface-specific earnings per start, surface-specific Best Speed, last speed and Speed Confirmed are shown as evidence. Turf records use BRIS fields 75-79; off-track records use 80-84. Surface changes still trigger a full recomputation.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.16 fixes Compute Race Card and keeps Decision Board support based on the horse's own performances and earnings. Career earnings per start, surface-specific earnings per start, surface-specific Best Speed, last speed and Speed Confirmed are shown as evidence. Turf records use BRIS fields 75-79; off-track records use 80-84. Surface changes still trigger a full recomputation.
 </p>
 </header>
 
@@ -4025,12 +4025,12 @@ function computeRaceCard(){
 
                     <div class="model-prob">
                         <button class="prob-button" onclick="openProbability('${safe(raceNum)}')" aria-label="Open probability details">
-                            ${calibratedWinEstimate(activeField, top.horse).pct.toFixed(1)}%
+                            ${(top.probability*100).toFixed(1)}%
                         </button>
                     </div>
 
                     <div class="confidence ${quality.label==="COMPLETE" ? "conf-strong" : quality.label==="PARTIAL" ? "conf-lean" : "conf-caution"}">
-                        HISTORICAL WIN ESTIMATE · DATA QUALITY ${quality.label} · TAP % FOR DETAILS
+                        MODEL SHARE · DATA QUALITY ${quality.label} · TAP % FOR DETAILS
                     </div>
 
                 </div>
@@ -5454,6 +5454,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.15 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.16 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
