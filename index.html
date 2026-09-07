@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.12 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.13 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.12</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.13</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.12 keeps the corrected frozen Overlay cross-check and improves Previous Direct Meetings: each shared-race block now shows distance, class, beaten-length context, and the BRIS chart comment for every current runner in that prior race. Comments containing trouble language are highlighted red. Horse Handicap scoring and classification are unchanged.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.13 keeps the corrected frozen Overlay cross-check and improves Previous Direct Meetings: each shared-race block now shows distance, class, beaten-length context, and the BRIS chart comment for every current runner in that prior race. Comments containing trouble language are highlighted red. Horse Handicap scoring and classification are unchanged.
 </p>
 </header>
 
@@ -1849,6 +1849,14 @@ function loadDRF(text){
                 jockeyWins:getNumber(fields,36),
                 jockeyPlaces:getNumber(fields,37),
                 jockeyShows:getNumber(fields,38),
+
+                // BRIS Single File: lifetime turf record is fields 75-79;
+                // overall lifetime record is fields 97-101. Keep both separate.
+                turfStarts:getNumber(fields,75),
+                turfWins:getNumber(fields,76),
+                turfPlaces:getNumber(fields,77),
+                turfShows:getNumber(fields,78),
+                turfEarnings:getNumber(fields,79),
 
                 starts:getNumber(fields,97),
                 wins:getNumber(fields,98),
@@ -4860,6 +4868,31 @@ function renderInlineRaceH2H(activeField){
 }
 
 
+function formatRecordMoney(v){
+    const n=number(v);
+    if(!n) return "$0";
+    return "$" + Math.round(n).toLocaleString();
+}
+
+function totalTurfRecordHTML(horse, compact=false){
+    if(!horse) return "";
+    const total = `${horse.starts || 0}-${horse.wins || 0}-${horse.places || 0}-${horse.shows || 0}`;
+    const turf = `${horse.turfStarts || 0}-${horse.turfWins || 0}-${horse.turfPlaces || 0}-${horse.turfShows || 0}`;
+    const totalMoney = formatRecordMoney(horse.careerEarnings);
+    const turfMoney = formatRecordMoney(horse.turfEarnings);
+    if(compact){
+        return `Total <b>${total}</b> · ${totalMoney}<br>Turf <b>${turf}</b> · ${turfMoney}`;
+    }
+    return `
+        <div class="h2h-stat">
+            Total record: <b>${total}</b> &nbsp; Earnings: <b>${totalMoney}</b>
+        </div>
+        <div class="h2h-stat">
+            Turf record: <b>${turf}</b> &nbsp; Turf earnings: <b>${turfMoney}</b>
+        </div>
+    `;
+}
+
 function renderH2HHorse(horse){
 
     if(!horse){
@@ -4931,18 +4964,7 @@ function renderH2HHorse(horse){
 
         </div>
 
-        <div class="h2h-stat">
-
-            Career:
-            <b>
-                ${horse.starts || 0}
-                starts —
-                ${horse.wins || 0}W /
-                ${horse.places || 0}P /
-                ${horse.shows || 0}S
-            </b>
-
-        </div>
+        ${totalTurfRecordHTML(horse)}
 
         <div class="h2h-stat">
 
@@ -5253,14 +5275,9 @@ function openPP(id){
 
         <br>
 
-        Career:
-        <b>
-            ${horse.starts || 0}
-            Starts —
-            ${horse.wins || 0}W /
-            ${horse.places || 0}P /
-            ${horse.shows || 0}S
-        </b>
+        Record / earnings:
+        <br>
+        ${totalTurfRecordHTML(horse, true)}
 
     </div>
 
@@ -5277,7 +5294,7 @@ function openPP(id){
     </div>
 
     <div class="note" style="margin:-2px 0 8px;">
-        Win / Place / Show names are shown for each prior race. <b>Bold names</b> identify a horse entered today that beat another current runner in that same prior race (matched by date + race number).
+        Total and turf records are kept separate above so a horse's overall W/P/S and earnings are not confused with its turf-only record. Win / Place / Show names are shown for each prior race. <b>Bold names</b> identify a horse entered today that beat another current runner in that same prior race (matched by date + race number).
     </div>
 
 
@@ -5494,6 +5511,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.12 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.13 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
