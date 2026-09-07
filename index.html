@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.16 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.17 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.16</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.17</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.16 fixes Compute Race Card and keeps Decision Board support based on the horse's own performances and earnings. Career earnings per start, surface-specific earnings per start, surface-specific Best Speed, last speed and Speed Confirmed are shown as evidence. Turf records use BRIS fields 75-79; off-track records use 80-84. Surface changes still trigger a full recomputation.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.17 fixes Compute Race Card and keeps Decision Board support based on the horse's own performances and earnings. Career earnings per start, surface-specific earnings per start, surface-specific Best Speed, last speed and Speed Confirmed are shown as evidence. Turf records use BRIS fields 75-79; off-track records use 80-84. Surface changes still trigger a full recomputation.
 </p>
 </header>
 
@@ -2791,17 +2791,22 @@ function dataQuality(horse){
 function raceDecision(top,field){
     const horse=top.horse;
     const reasons=[];
+    const warnings=[];
     const firstTimers=field.filter(h=>number(h.starts)===0).length;
     const firstTimerRate=field.length ? firstTimers/field.length : 0;
 
+    // Only structural/data problems can force a race-level PASS here.
     if(number(horse.currentDistance)>3000) reasons.push("specialty or jump-distance race");
     if(top.components.quality.label==="POOR") reasons.push("poor core-data coverage");
     if(firstTimerRate>=.25) reasons.push("many first-time starters");
+
+    // A missing exact-condition match is useful context, but it must not contradict
+    // a strong performance/earnings read by independently forcing PASS.
     if(horse.currentTrackCondition && conditionSpeedScore(horse)===0){
-        reasons.push("no matching speed figure for today's track condition");
+        warnings.push("no matching speed figure for today's exact track condition");
     }
 
-    return {pass:reasons.length>0,reasons,firstTimers,firstTimerRate};
+    return {pass:reasons.length>0,reasons,warnings,firstTimers,firstTimerRate};
 }
 
 function classDropStatus(horse){
@@ -3424,6 +3429,16 @@ function raceBetQualityHTML(field, modelTopHorse){
     const q=raceBetQuality(field,modelTopHorse);
     return `<div class="race-quality rq-${q.level}"><span class="rq-tag">${safe(q.label)}</span>${safe(q.text)} <b>No historical profile percentage is being assigned to this new evidence set.</b></div>`;
 }
+function finalRaceDecision(top,field){
+    const structural=raceDecision(top,field);
+    const quality=raceBetQuality(field,top.horse);
+    const pass=structural.pass || quality.level==='pass';
+    const label=pass ? (structural.pass ? 'PASS' : quality.label) : quality.label;
+    const reasons=[...structural.reasons];
+    if(quality.level==='pass') reasons.push(quality.text);
+    return {pass,label,reasons,warnings:structural.warnings || [],structural,quality};
+}
+
 
 function openProbability(raceNum){
     const d=probabilityDetails[String(raceNum)];
@@ -3433,10 +3448,11 @@ function openProbability(raceNum){
       <div class="model-prob" style="margin:8px 0;">${(d.probability*100).toFixed(1)}%</div>
       <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
       <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
-      <div class="metric-line">Decision: <b>${d.pass ? "PASS" : "CONTENDER REVIEW"}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
+      <div class="metric-line">Decision: <b>${safe(d.decision.label || (d.pass ? "PASS" : "REVIEW"))}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
       ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
       ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
-      ${d.pass ? `<div class="warning-box"><b>Automatic PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
+      ${d.pass ? `<div class="warning-box"><b>PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
+      ${(!d.pass && d.decision.warnings && d.decision.warnings.length) ? `<div class="warning-box"><b>Condition note:</b> ${safe(d.decision.warnings.join("; "))}. Warning only; it does not override the final bet-quality decision.</div>` : ""}
       <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Use it for ranking, not as a betting edge or fair odds.</div>
     `;
     $("probOverlay").classList.add("show");
@@ -3924,7 +3940,7 @@ function computeRaceCard(){
 
         const quality=top.components.quality;
 
-        const decision=raceDecision(top,activeField);
+        const decision=finalRaceDecision(top,activeField);
 
 
         const marketOrder=activeField
@@ -3959,13 +3975,13 @@ function computeRaceCard(){
             decision,
             marketRank,
             performanceSupport:performanceEarningsSupport(activeField,top.horse),
-            raceQuality:raceBetQuality(activeField,top.horse)
+            raceQuality:decision.quality
         };
 
         const decisionClassMap={};
         scored.forEach(item=>{ decisionClassMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
 
-        const betQ=raceBetQuality(activeField,top.horse);
+        const betQ=decision.quality;
         const perfSupport=performanceEarningsSupport(activeField,top.horse);
         betRaceRows.push({
             race:String(raceNum), horse:top.horse, quality:betQ,
@@ -3997,7 +4013,7 @@ function computeRaceCard(){
                         </span>
 
                         <span class="badge">
-                            ${passFlag ? "PASS" : "CONTENDER REVIEW"}
+                            ${safe(decision.label)}
                         </span>
 
                         ${
@@ -4132,6 +4148,9 @@ function computeRaceCard(){
                 ? `<div class="warning-box"><b>PASS this race:</b> ${safe(decision.reasons.join("; "))}. The horse remains the model's top-ranked contender, but this is not a wager recommendation.</div>`
                 : ""
             }
+            ${(!passFlag && decision.warnings && decision.warnings.length)
+                ? `<div class="warning-box"><b>Condition note:</b> ${safe(decision.warnings.join("; "))}. This is a warning only and does not override the final bet-quality decision.</div>`
+                : ""}
 
 
             ${
@@ -4221,7 +4240,7 @@ function computeRaceCard(){
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        Ranked by race quality, then Performance + Earnings support, then Speed Confirmed. A race-level PASS still overrides this list.
+        Ranked by race quality, then Performance + Earnings support, then Speed Confirmed. The final race decision is unified: structural PASS rules and Performance + Earnings quality cannot display contradictory labels.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
@@ -5454,6 +5473,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.16 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.17 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
