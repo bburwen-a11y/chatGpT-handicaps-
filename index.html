@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.9 · September 6, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.10 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.9</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.10</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.9 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.10 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
 </p>
 </header>
 
@@ -1853,6 +1853,7 @@ function loadDRF(text){
                 wins:getNumber(fields,98),
                 places:getNumber(fields,99),
                 shows:getNumber(fields,100),
+                careerEarnings:getNumber(fields,101),
 
                 currentTrack:getField(fields,1),
                 currentRaceDate:formatDate(getField(fields,2)),
@@ -3153,7 +3154,7 @@ function getConfidence(top,second){
 }
 
 
-/* v7.9 calibrated confidence — September 5, 2026.
+/* v7.10 calibrated confidence — September 5, 2026.
    Ranking is unchanged; this is the displayed historical win estimate.
    Race number is not used: exact consensus was 52.6% in R1–3 and 52.6% in R4+ historically. */
 function calibratedWinEstimate(field, topHorse){
@@ -3315,7 +3316,7 @@ function historicalConsensus(field, modelTopHorse){
 
 
 /*
-RACE BET QUALITY — v7.9
+RACE BET QUALITY — v7.10
 Historical test bed: paired_final6.csv, 196 races.
 
 The race-quality layer does NOT change horse scores or classifications.
@@ -3598,6 +3599,80 @@ function classificationEvidence(item,scored,field){
     }
 
     return {label:"CONTENDER",reason:"Inside the market's top-five / under-12-1 frame; no elimination trigger."};
+}
+
+
+/*
+Independent Claude / Overlay Board v1.30 cross-check.
+This does NOT alter the Horse Handicap score. It reproduces the supplied
+earnings-per-start + morning-line-favorite rule as a second opinion.
+Field 101 is lifetime earnings; fields 97-100 are lifetime starts/W/P/S.
+*/
+function claudeCrossCheck(field){
+    const live=(field || []).filter(h=>!h.scratched);
+    const rated=live
+      .filter(h=>number(h.starts)>0 && number(h.careerEarnings)>0)
+      .map(h=>({horse:h,eps:number(h.careerEarnings)/number(h.starts)}))
+      .sort((a,b)=>b.eps-a.eps);
+
+    if(rated.length<3 || rated.length/live.length<.5){
+        return {pick:null,line:"NONE",reason:"Too little career record for the earnings-per-start cross-check."};
+    }
+    const boardFinishes=live.reduce((n,h)=>n+number(h.wins)+number(h.places)+number(h.shows),0);
+    if(boardFinishes<1){
+        return {pick:null,line:"NONE",reason:"No top-three career finish in the field; earnings per start is not a reliable class proxy here."};
+    }
+    const priced=live.filter(h=>oddsDecimal(h.odds)!==null);
+    if(!priced.length) return {pick:null,line:"NONE",reason:"No morning line available."};
+    const fav=priced.slice().sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds))[0];
+    const favRow=rated.find(r=>r.horse.id===fav.id);
+    if(!favRow) return {pick:null,line:"NONE",reason:"Morning-line favorite has no career earnings record."};
+
+    const rank=1+rated.filter(r=>r.eps>favRow.eps).length;
+    const mlOK=oddsDecimal(fav.odds)<=2.5;
+
+    // Match Overlay v1.30 class-fit definition from the BRIS PP rows.
+    const todayClaim=number(fav.claimingPrice);
+    const todayFamily=String(fav.raceType || "").toUpperCase();
+    const pp=(fav.ppRaces || []).slice(0,4);
+    let classFit=0;
+    pp.forEach(pr=>{
+        const pastClaim=number(pr.claim);
+        let levelOK=true;
+        if(todayClaim>0 && pastClaim>0) levelOK=pastClaim>=.6*todayClaim;
+        const fin=number(pr.fin);
+        const margin=number(pr.margin);
+        const competitive=(fin>0 && fin<=3) || (margin>=0 && margin<=3);
+        if(levelOK && competitive) classFit++;
+    });
+    const fitOK=pp.length<3 || classFit>=2;
+    const filtersPass=mlOK && fitOK; // final odds are intentionally not used pre-race.
+
+    if(rank===1 && filtersPass){
+        return {pick:fav,line:"PICK",rank,eps:favRow.eps,classFit,classSeen:pp.length,
+                reason:"Morning-line favorite is #1 in career earnings/start and passes the price/class filters."};
+    }
+    if(rank===2 && !filtersPass){
+        return {pick:fav,line:"PRICE",rank,eps:favRow.eps,classFit,classSeen:pp.length,
+                reason:"Morning-line favorite is #2 in career earnings/start and fails at least one primary filter — Overlay-style price play."};
+    }
+    return {pick:null,line:"NONE",rank,eps:favRow.eps,classFit,classSeen:pp.length,
+            reason:`No Overlay-style play: morning-line favorite ranks #${rank} in career earnings/start${!mlOK?", M/L above 5/2":""}${!fitOK?", weak recent class fit":""}.`};
+}
+
+function claudeCrossCheckHTML(field,topHorse){
+    const c=claudeCrossCheck(field);
+    const sc=speedConfirmedInfo(field,topHorse);
+    if(!c.pick){
+        const caution=!sc.confirmed ? ' <span class="badge">NO CROSS-CHECK SUPPORT</span>' : '';
+        return `<div class="reason-box"><b>Claude cross-check:</b> No independent selection.${caution}<br><span class="note">${safe(c.reason)} Horse Handicap scoring is unchanged.</span></div>`;
+    }
+    const agree=c.pick.id===topHorse.id;
+    const label=agree ? "CONSENSUS" : (sc.confirmed ? "OUR SPEED EDGE" : "DISAGREEMENT");
+    const cls=agree ? "badge-green" : "badge-blue";
+    return `<div class="reason-box"><b>Claude cross-check:</b> <span class="badge ${cls}">${label}</span> `+
+      `${safe(c.line)} — #${safe(c.pick.post)} ${safe(c.pick.horse)}.`+
+      `<br><span class="note">${safe(c.reason)} This is a second opinion only; it does not change model probability.</span></div>`;
 }
 
 function decisionAlsoWithShot(scored,classMap,top){
@@ -3927,10 +4002,13 @@ function computeRaceCard(){
         scored.forEach(item=>{ decisionClassMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
 
         const betQ=raceBetQuality(activeField,top.horse);
+        const claudeCheck=claudeCrossCheck(activeField);
         betRaceRows.push({
             race:String(raceNum), horse:top.horse, quality:betQ,
             pass:passFlag, close:closeRace, marketRank,
-            speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed
+            speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed,
+            claudeAgree:!!(claudeCheck.pick && claudeCheck.pick.id===top.horse.id),
+            claudeLine:claudeCheck.line
         });
 
 
@@ -4061,6 +4139,7 @@ function computeRaceCard(){
 
 
             ${historicalConsensusHTML(activeField, top.horse)}
+            ${claudeCrossCheckHTML(activeField, top.horse)}
             ${raceBetQualityHTML(activeField, top.horse)}
             ${calibratedProbabilityHTML(activeField, top.horse)}
 
@@ -4166,19 +4245,23 @@ function computeRaceCard(){
     const rankedBetRaces=betRaceRows.slice().sort((a,b)=>{
         const ap=a.pass?4:(betOrder[a.quality.level]??3);
         const bp=b.pass?4:(betOrder[b.quality.level]??3);
-        return ap-bp || number(a.race)-number(b.race);
+        return ap-bp ||
+               (b.speedConfirmed?1:0)-(a.speedConfirmed?1:0) ||
+               (b.claudeAgree?1:0)-(a.claudeAgree?1:0) ||
+               number(a.race)-number(b.race);
     });
     const bestBetRaces=rankedBetRaces.filter(x=>!x.pass && (x.quality.level==="strong" || x.quality.level==="standard"));
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        Ranked from the Decision Board's existing historical race-quality test. A race-level PASS still overrides this list.
+        Ranked by the existing race-quality test, then Speed Confirmed, then independent Claude/Overlay agreement. A race-level PASS still overrides this list.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
           <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
           <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.quality.label)}</span>
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
+          ${x.claudeAgree?'<span class="badge badge-green">CLAUDE AGREES</span>':''}
           ${x.close?'<span class="badge">CLOSE RACE</span>':''}
           <div class="metric-line">${safe(x.quality.text)}</div>
         </div>`).join("") :
@@ -5319,6 +5402,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.9 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.10 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
