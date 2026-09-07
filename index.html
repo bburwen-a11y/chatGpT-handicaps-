@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.8 · September 5, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.9 · September 6, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -772,6 +772,34 @@ tbody input:focus{
   .rq-pass .rq-tag{background:#9b4b42;color:#fff;}
 
 </style>
+
+<style id="v79-updates">
+.pp-current-contender{
+  font-weight:800;
+  background:#FFF3D0;
+  padding:0 3px;
+  border-radius:2px;
+}
+.decision-also{
+  margin-top:10px;
+  padding:9px 11px;
+  border-left:3px solid #C08A2E;
+  background:rgba(217,167,59,.08);
+  font-size:12px;
+  line-height:1.55;
+}
+.decision-also b{color:var(--ink);}
+.rss-guard{
+  margin-top:8px;
+  padding:8px 10px;
+  border:1px solid #C08A2E;
+  background:#FFFBEF;
+  border-radius:3px;
+  font-size:12px;
+  line-height:1.5;
+}
+</style>
+
 </head>
 
 <body>
@@ -780,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.8</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.9</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.8 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.9 restores the original v7.3 Contender / Questionable / Pretender classification sequence; Speed Confirmed is display-only and does not change classification.
 </p>
 </header>
 
@@ -1996,234 +2024,245 @@ function extractFeedDate(doc){
    SCRATCH / JOCKEY MATCHING
 ============================================================ */
 
-function applyRSS(raw,fileName="Pasted Content"){
 
-    if(!raw || !raw.trim()){
+function jockeyNameParts(s){
+    const suffix=new Set(["JR","SR","II","III","IV"]);
+    const clean=String(s||"").toUpperCase()
+        .replace(/[^A-Z ]/g," ")
+        .replace(/\s+/g," ")
+        .trim();
+    if(!clean) return null;
+    const toks=clean.split(" ").filter(t=>t && !suffix.has(t));
+    const words=toks.filter(t=>t.length>1);
+    const initials=toks.filter(t=>t.length===1).concat(words.map(w=>w[0]));
+    return {words,initials};
+}
 
-        $("rssStatus").className =
-            "status err";
+function sameJockeyName(a,b){
+    const A=jockeyNameParts(a), B=jockeyNameParts(b);
+    if(!A || !B) return false;
+    const shared=A.words.filter(w=>B.words.includes(w));
+    if(A.words.length>=2 && B.words.length>=2) return shared.length>=2;
+    if(!shared.length) return false;
+    if(A.words.length===1 || B.words.length===1){
+        const ai=A.initials, bi=B.initials;
+        if(!ai.length || !bi.length) return true;
+        return ai.some(i=>bi.includes(i));
+    }
+    return true;
+}
 
-        $("rssStatus").textContent =
-            "XML ERROR: Input is empty.";
+function decodeFeedEntities(t){
+    return String(t||"")
+      .replace(/&lt;/g,"<").replace(/&gt;/g,">")
+      .replace(/&quot;/g,'"').replace(/&#0?39;/g,"'")
+      .replace(/&apos;/g,"'").replace(/&nbsp;/g," ")
+      .replace(/&amp;/g,"&");
+}
 
-        return;
+function normalizeYmd(value){
+    const s=String(value||"").trim();
+    let m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if(m) return m[1]+m[2]+m[3];
+    m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return m[1]+m[2]+m[3];
+    m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return m[3]+String(m[1]).padStart(2,"0")+String(m[2]).padStart(2,"0");
+    const d=new Date(s);
+    if(!isNaN(d)){
+        return String(d.getFullYear())+
+            String(d.getMonth()+1).padStart(2,"0")+
+            String(d.getDate()).padStart(2,"0");
+    }
+    return "";
+}
 
+function parseEquibaseChanges(raw){
+    const out={track:"",feedDate:"",feedYmd:"",scratches:[],riders:[],conditions:[]};
+
+    const title=raw.match(/<title>\s*Equibase\s+([A-Z0-9]{2,5})\s+Changes/i);
+    if(title) out.track=title[1].toUpperCase();
+
+    const pub=raw.match(/<pubDate>([^<]+)<\/pubDate>/i);
+    if(pub){
+        out.feedDate=pub[1].trim();
+        out.feedYmd=normalizeYmd(out.feedDate);
     }
 
-    const doc = parseXML(raw);
+    const iso=raw.match(/<dc:date>\s*(\d{4})-(\d{2})-(\d{2})/i);
+    if(iso) out.feedYmd=iso[1]+iso[2]+iso[3];
 
-    if(!doc){
-
-        $("rssStatus").className =
-            "status err";
-
-        $("rssStatus").textContent =
-            "XML ERROR: Invalid XML/RSS. " +
-            "Paste the actual XML source rather than an HTML webpage.";
-
-        return;
-
+    const descRe=/<description>([\s\S]*?)<\/description>/gi;
+    let dm, lines=[];
+    while((dm=descRe.exec(raw))!==null){
+        decodeFeedEntities(dm[1]).split(/<br\s*\/?>/i).forEach(line=>{
+            const t=line.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+            if(t) lines.push(t);
+        });
     }
 
-
-    /*
-    Broad element support for different feeds.
-    */
-
-    const items = [
-        ...doc.querySelectorAll(
-            "item,entry,change,scratch,jockey_change"
-        )
-    ];
-
-    /* Capture late dirt/turf condition changes by race. */
-    trackConditions = {};
-    items.forEach(item=>{
-        const itemText=item.textContent || "";
-        const matches=itemText.matchAll(
-            /Race\s+0?(\d+):\s*Current\s+(?:Dirt|Turf)\s+Track\s+Condition\s*-\s*([^<\r\n]+)/gi
-        );
-        for(const match of matches){
-            const tail=match[2];
-            const changed=tail.match(/changed\s+to\s+([A-Za-z]+)/i);
-            const direct=tail.match(/([A-Za-z]+)\s*$/);
-            const condition=changed ? changed[1] : direct ? direct[1] : "";
-            if(condition){
-                trackConditions[String(number(match[1]))]=condition;
-            }
+    // Some feeds expose useful text directly in item nodes rather than description.
+    if(!lines.length){
+        const doc=parseXML(raw);
+        if(doc){
+            [...doc.querySelectorAll("item,entry,change,scratch,jockey_change")].forEach(item=>{
+                const t=(item.textContent||"").replace(/\s+/g," ").trim();
+                if(t) lines.push(t);
+            });
         }
-    });
+    }
 
+    const scratchSeen=new Set(), riderSeen=new Set();
 
-    let scratchCount = 0;
-    let jockeyCount = 0;
+    lines.forEach(line=>{
+        const rm=line.match(/Race\s*0?(\d{1,2})\s*:\s*(.*)$/i);
+        if(!rm) return;
+        const race=String(parseInt(rm[1],10));
+        const body=rm[2].trim();
+        let m;
 
-
-    rows.forEach(r=>{
-
-        r.currentTrackCondition =
-            trackConditions[String(number(r.race))] ||
-            r.currentTrackCondition || "";
-
-        if(!r.horse){
+        if((m=body.match(/^#\s*(\d{1,2})\s+(.+?)\s+Scratched\b/i))){
+            const post=String(parseInt(m[1],10));
+            const key=race+"-"+post;
+            if(!scratchSeen.has(key)){
+                scratchSeen.add(key);
+                out.scratches.push({race,post,horse:m[2].trim()});
+            }
             return;
         }
 
-        const horseKey =
-            normalizeName(r.horse);
-
-
-        items.forEach(item=>{
-
-            const itemText =
-                item.textContent || "";
-
-            const normalizedText =
-                normalizeName(itemText);
-
-
-            /*
-            Horse name must actually occur.
-            */
-
-            if(
-                !normalizedText.includes(horseKey)
-            ){
-
-                return;
-
+        if((m=body.match(/^#\s*(\d{1,2})\s+(.+?)\s+Jockey\s*-\s*(.+?)\s+changed to\s+(.+?)\s*$/i))){
+            const post=String(parseInt(m[1],10));
+            const key=race+"-"+post+"-"+m[4].trim().toUpperCase();
+            if(!riderSeen.has(key)){
+                riderSeen.add(key);
+                out.riders.push({race,post,horse:m[2].trim(),from:m[3].trim(),to:m[4].trim()});
             }
+            return;
+        }
 
-
-            /*
-            SCRATCH
-            */
-
-            if(
-                /\bscratch(?:ed|ing)?\b/i.test(
-                    itemText
-                )
-            ){
-
-                if(!r.scratched){
-
-                    r.scratched = true;
-
-                    scratchCount++;
-
-                }
-
-            }
-
-
-            /*
-            JOCKEY / RIDER CHANGE
-            */
-
-            if(
-                /\b(jockey|rider)\b/i.test(
-                    itemText
-                )
-            ){
-
-                /*
-                Try several common feed phrasings.
-                */
-
-                const patterns = [
-
-                    /(?:jockey|rider)\s+(?:change[d]?\s+)?(?:to|:)?\s*([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/i,
-
-                    /(?:new\s+jockey|new\s+rider)\s*[:\-]?\s*([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/i,
-
-                    /(?:jockey|rider)\s*[:\-]\s*([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/i
-
-                ];
-
-
-                let newName = "";
-
-                for(const pattern of patterns){
-
-                    const match =
-                        itemText.match(pattern);
-
-                    if(match && match[1]){
-
-                        newName =
-                            match[1].trim();
-
-                        break;
-
-                    }
-
-                }
-
-
-                if(
-                    newName &&
-                    normalizeName(newName) !==
-                    normalizeName(r.jockey)
-                ){
-
-                    r.jockey =
-                        newName;
-
-                    r.jockeyChanged =
-                        true;
-
-                    jockeyCount++;
-
-                }
-
-            }
-
-        });
-
+        if(/Track Condition/i.test(body)){
+            out.conditions.push({race,text:body});
+        }
     });
 
+    return out;
+}
 
-    const feedDate =
-        extractFeedDate(doc);
+function applyRSS(raw,fileName="Pasted Content"){
+    if(!raw || !raw.trim()){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="XML/RSS ERROR: Input is empty.";
+        return;
+    }
 
+    const doc=parseXML(raw);
+    if(!doc){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="XML/RSS ERROR: Invalid XML/RSS. Paste or select the actual Equibase feed source.";
+        return;
+    }
 
-    $("rssFileName").textContent =
-        fileName;
+    if(!rows.length){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="Load the race data first, then apply the Equibase changes feed.";
+        return;
+    }
 
-    $("rssFileDate").textContent =
-        feedDate;
+    const feed=parseEquibaseChanges(raw);
 
-    $("rssItemCount").textContent =
-        items.length;
+    // Strong guard against applying the right track's old feed, or another track's feed.
+    const cardTracks=[...new Set(rows.map(r=>String(r.currentTrack||"").toUpperCase().trim()).filter(Boolean))];
+    const cardDates=[...new Set(rows.map(r=>normalizeYmd(r.currentRaceDate)).filter(Boolean))];
+    const mismatches=[];
 
-    $("rssMetaBox")
-        .classList.add("show");
+    if(feed.track && cardTracks.length && !cardTracks.includes(feed.track)){
+        mismatches.push(`feed track ${feed.track} does not match loaded card ${cardTracks.join(", ")}`);
+    }
+    if(feed.feedYmd && cardDates.length && !cardDates.includes(feed.feedYmd)){
+        mismatches.push(`feed date ${feed.feedYmd} does not match loaded card ${cardDates.join(", ")}`);
+    }
 
+    if(mismatches.length){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="FEED NOT APPLIED: "+mismatches.join("; ")+".";
+        return;
+    }
+
+    let scratchCount=0, jockeyCount=0;
+    const unmatchedScratches=[], unmatchedRiders=[];
+
+    feed.scratches.forEach(sc=>{
+        const row=rows.find(r=>
+            String(number(r.race))===String(number(sc.race)) &&
+            String(number(r.post))===String(number(sc.post))
+        );
+        if(!row){
+            unmatchedScratches.push(sc);
+            return;
+        }
+        if(!row.scratched){
+            row.scratched=true;
+            scratchCount++;
+        }
+    });
+
+    feed.riders.forEach(rc=>{
+        const row=rows.find(r=>
+            String(number(r.race))===String(number(rc.race)) &&
+            String(number(r.post))===String(number(rc.post))
+        );
+        if(!row){
+            unmatchedRiders.push(rc);
+            return;
+        }
+
+        if(rc.to && !sameJockeyName(rc.to,row.jockey)){
+            if(!row.origJockey) row.origJockey=row.jockey || rc.from || "";
+            row.jockey=rc.to;
+            row.jockeyChanged=true;
+            jockeyCount++;
+        }
+    });
+
+    // Keep late condition notes by race, display-only unless existing race logic uses them.
+    trackConditions={};
+    feed.conditions.forEach(c=>{
+        const changed=String(c.text||"").match(/changed\s+to\s+([A-Za-z]+)/i);
+        const direct=String(c.text||"").match(/Track Condition\s*-\s*([A-Za-z]+)/i);
+        const condition=changed ? changed[1] : direct ? direct[1] : "";
+        if(condition) trackConditions[String(number(c.race))]=condition;
+    });
+
+    rows.forEach(r=>{
+        r.currentTrackCondition=
+            trackConditions[String(number(r.race))] ||
+            r.currentTrackCondition || "";
+    });
+
+    $("rssFileName").textContent=fileName;
+    $("rssFileDate").textContent=feed.feedDate || "Not specified";
+    $("rssItemCount").textContent=
+        feed.scratches.length + feed.riders.length + feed.conditions.length;
+    $("rssMetaBox").classList.add("show");
 
     renderRows();
 
-
-    $("rssStatus").className =
-        "status ok";
-
-    $("rssStatus").textContent =
-        "Applied " +
-        scratchCount +
-        " scratch(es) and " +
-        jockeyCount +
-        " jockey change(s).";
-
-
-    /*
-    Recalculate automatically if a card already exists.
-    */
-
-    if(Object.keys(computedRaces).length){
-
-        computeRaceCard();
-
+    let msg=`Applied ${scratchCount} scratch(es) and ${jockeyCount} jockey change(s)`;
+    if(unmatchedScratches.length) msg+=`; ${unmatchedScratches.length} scratch(es) had no matching race/post`;
+    if(unmatchedRiders.length) msg+=`; ${unmatchedRiders.length} rider change(s) had no matching race/post`;
+    if(!feed.scratches.length && !feed.riders.length){
+        msg+=". No scratches or rider changes were found in this feed yet";
+    } else {
+        msg+=".";
     }
 
+    $("rssStatus").className="status ok";
+    $("rssStatus").textContent=msg;
+
+    if(Object.keys(computedRaces).length){
+        computeRaceCard();
+    }
 }
 
 
@@ -3114,7 +3153,7 @@ function getConfidence(top,second){
 }
 
 
-/* v7.8 calibrated confidence — September 5, 2026.
+/* v7.9 calibrated confidence — September 5, 2026.
    Ranking is unchanged; this is the displayed historical win estimate.
    Race number is not used: exact consensus was 52.6% in R1–3 and 52.6% in R4+ historically. */
 function calibratedWinEstimate(field, topHorse){
@@ -3276,7 +3315,7 @@ function historicalConsensus(field, modelTopHorse){
 
 
 /*
-RACE BET QUALITY — v7.8
+RACE BET QUALITY — v7.9
 Historical test bed: paired_final6.csv, 196 races.
 
 The race-quality layer does NOT change horse scores or classifications.
@@ -3560,6 +3599,32 @@ function classificationEvidence(item,scored,field){
 
     return {label:"CONTENDER",reason:"Inside the market's top-five / under-12-1 frame; no elimination trigger."};
 }
+
+function decisionAlsoWithShot(scored,classMap,top){
+    const live=scored.filter(item=>
+        item.horse.id!==top.horse.id &&
+        classMap[item.horse.id] &&
+        classMap[item.horse.id].label!=="PRETENDER"
+    );
+    if(!live.length){
+        return `<div class="decision-also"><b>No other live contender.</b> The remaining runners are classified Pretender.</div>`;
+    }
+    return `<div class="decision-also"><b>Also with a shot:</b> `+
+      live.map(item=>{
+        const cls=classMap[item.horse.id].label;
+        return `#${safe(item.horse.post)} ${safe(item.horse.horse)} `+
+               `<span class="badge ${cls==="QUESTIONABLE"?"badge-blue":""}">${safe(cls)}</span>`;
+      }).join(" · ")+
+      `<br><span class="note">Same classification used on the Contenders tab; listed in model order.</span></div>`;
+}
+
+function currentRaceClassificationMap(field){
+    const scored=calculateProbabilities(field.filter(h=>!h.scratched));
+    const map={};
+    scored.forEach(item=>map[item.horse.id]=classificationEvidence(item,scored,field.filter(h=>!h.scratched)));
+    return {scored,map};
+}
+
 function trainerMultipleEntryMap(field){
     const counts={};
     (field || []).forEach(h=>{
@@ -3858,6 +3923,9 @@ function computeRaceCard(){
             calibrated:calibratedWinEstimate(activeField,top.horse)
         };
 
+        const decisionClassMap={};
+        scored.forEach(item=>{ decisionClassMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
+
         const betQ=raceBetQuality(activeField,top.horse);
         betRaceRows.push({
             race:String(raceNum), horse:top.horse, quality:betQ,
@@ -4011,6 +4079,8 @@ function computeRaceCard(){
 
             </div>
 
+            ${decisionAlsoWithShot(scored,decisionClassMap,top)}
+
             ${
                 passFlag
                 ? `<div class="warning-box"><b>PASS this race:</b> ${safe(decision.reasons.join("; "))}. The horse remains the model's top-ranked contender, but this is not a wager recommendation.</div>`
@@ -4062,8 +4132,7 @@ function computeRaceCard(){
            FULL FIELD + LIVE FIELD + THREE-WAY CLASSIFICATION
            Morning line is NOT an elimination rule.
         ==================================================== */
-        const classMap={};
-        scored.forEach(item=>{ classMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
+        const classMap=decisionClassMap;
 
         cardHTML += fieldTableHTML(raceNum,fullField,scored,classMap,false);
         liveCardHTML += fieldTableHTML(raceNum,fullField,scored,classMap,true);
@@ -4086,7 +4155,7 @@ function computeRaceCard(){
               ${questionable.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b> ${speedConfirmedBadge(activeField,item.horse)}<br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None.</div>'}
             </div>
             <div class="analysis-box pretender"><h4>Pretenders (${pretenders.length})</h4>
-              ${pretenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b> ${speedConfirmedBadge(activeField,item.horse)}<br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None — no horse earned elimination from negative PP evidence.</div>'}
+              ${pretenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b> ${speedConfirmedBadge(activeField,item.horse)}<br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None — every runner remains inside the live market/form frame.</div>'}
             </div>
           </div>
           ${renderInlineRaceH2H(activeField)}
@@ -4846,23 +4915,33 @@ function ppHorseBeatCurrentRunner(namedHorse,pp,horse){
 }
 
 function renderPPFinisher(name,pp,horse,label){
-    const value = String(name || "").trim();
+    const value=String(name||"").trim();
     if(!value) return '<span style="opacity:.55">-</span>';
 
-    const isToday = !!ppTodayRunnerByName(value,horse);
-    const beatToday = isToday && ppHorseBeatCurrentRunner(value,pp,horse);
-    const title = beatToday
-        ? 'H2H: this horse beat another runner entered in today’s race'
-        : isToday
-        ? 'Also entered in today’s race'
-        : '';
+    const named=ppTodayRunnerByName(value,horse);
+    const isToday=!!named;
+    const beatToday=isToday && ppHorseBeatCurrentRunner(value,pp,horse);
 
-    const rendered = safe(value);
-    return beatToday
-        ? `<strong class="pp-h2h-beater" title="${safe(title)}">${rendered}</strong>`
-        : isToday
-        ? `<span class="pp-current-runner" title="${safe(title)}">${rendered}</span>`
-        : rendered;
+    let isContender=false;
+    if(named){
+        const raceField=rows.filter(r=>!r.scratched && String(r.race)===String(horse.race));
+        if(raceField.length>=2){
+            const result=currentRaceClassificationMap(raceField);
+            isContender=!!(result.map[named.id] && result.map[named.id].label==="CONTENDER");
+        }
+    }
+
+    const rendered=safe(value);
+    if(beatToday){
+        return `<strong class="pp-h2h-beater" title="H2H: this horse beat another runner entered in today’s race">${rendered}</strong>`;
+    }
+    if(isContender){
+        return `<strong class="pp-current-contender" title="Contender in today’s race">${rendered}</strong>`;
+    }
+    if(isToday){
+        return `<span class="pp-current-runner" title="Also entered in today’s race">${rendered}</span>`;
+    }
+    return rendered;
 }
 
 function renderContenderPastPerformances(horse){
@@ -5240,6 +5319,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.8 · iPhone/Safari build 2026-09-03</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.9 · iPhone/Safari build 2026-09-03</div>
 </body>
 </html>
