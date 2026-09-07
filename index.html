@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.13 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.14 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.13</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.14</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.13 keeps the corrected frozen Overlay cross-check and improves Previous Direct Meetings: each shared-race block now shows distance, class, beaten-length context, and the BRIS chart comment for every current runner in that prior race. Comments containing trouble language are highlighted red. Horse Handicap scoring and classification are unchanged.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.14 adds live race-surface changes from the Equibase changes feed. When a race moves from turf to dirt/main track (or vice versa), Surface Fit, condition fit, surface-specific Best Speed, model rankings, probabilities, Decision Board and Best Races to Bet are recomputed automatically. The original DRF surface is preserved and changed races are flagged.
 </p>
 </header>
 
@@ -1867,6 +1867,9 @@ function loadDRF(text){
                 currentTrack:getField(fields,1),
                 currentRaceDate:formatDate(getField(fields,2)),
                 currentSurface:getField(fields,7),
+                originalSurface:getField(fields,7),
+                surfaceChanged:false,
+                surfaceChangeText:"",
                 currentTrackCondition:"",
                 currentDistance:getNumber(fields,6),
                 raceType:getField(fields,9),
@@ -2088,7 +2091,7 @@ function normalizeYmd(value){
 }
 
 function parseEquibaseChanges(raw){
-    const out={track:"",feedDate:"",feedYmd:"",scratches:[],riders:[],conditions:[]};
+    const out={track:"",feedDate:"",feedYmd:"",scratches:[],riders:[],conditions:[],surfaces:[]};
 
     const title=raw.match(/<title>\s*Equibase\s+([A-Z0-9]{2,5})\s+Changes/i);
     if(title) out.track=title[1].toUpperCase();
@@ -2149,6 +2152,28 @@ function parseEquibaseChanges(raw){
                 out.riders.push({race,post,horse:m[2].trim(),from:m[3].trim(),to:m[4].trim()});
             }
             return;
+        }
+
+        // Surface changes are common when weather takes a race off the turf.
+        // Keep this separate from track condition: "Soft -> Dirt" is a surface
+        // change first, then the main-track condition is applied independently.
+        const surfaceText=body.replace(/\s+/g," ").trim();
+        let surface="";
+        if(/\b(off|taken off|moved off)\s+(the\s+)?turf\b/i.test(surfaceText) ||
+           /\b(moved|switched|changed)\s+(to\s+)?(the\s+)?main\s+track\b/i.test(surfaceText)){
+            surface="D";
+        }else{
+            const sm=surfaceText.match(/\b(?:race\s+)?surface\s*(?:-|:|changed\s+to|moved\s+to|switched\s+to)\s*(turf|grass|dirt|main\s+track|synthetic|all\s+weather)\b/i) ||
+                     surfaceText.match(/\b(?:moved|switched|changed)\s+to\s+(turf|grass|dirt|main\s+track|synthetic|all\s+weather)\b/i);
+            if(sm){
+                const s=sm[1].toLowerCase();
+                if(s==="turf" || s==="grass") surface="T";
+                else if(s==="synthetic" || s==="all weather") surface="A";
+                else surface="D";
+            }
+        }
+        if(surface){
+            out.surfaces.push({race,surface,text:surfaceText});
         }
 
         if(/Track Condition/i.test(body)){
@@ -2235,7 +2260,27 @@ function applyRSS(raw,fileName="Pasted Content"){
         }
     });
 
-    // Keep late condition notes by race, display-only unless existing race logic uses them.
+    // Apply race-surface changes before condition changes. This is critical:
+    // surface fit and surface-specific Best Speed must be based on where the race
+    // will actually be run, not where the overnight DRF expected it to be run.
+    let surfaceCount=0;
+    const surfaceByRace={};
+    feed.surfaces.forEach(sc=>{
+        surfaceByRace[String(number(sc.race))]=sc;
+    });
+    rows.forEach(r=>{
+        const sc=surfaceByRace[String(number(r.race))];
+        if(!sc) return;
+        if(!r.originalSurface) r.originalSurface=r.currentSurface || "";
+        const oldGroup=surfaceGroup(r.currentSurface);
+        const newGroup=surfaceGroup(sc.surface);
+        r.currentSurface=sc.surface;
+        r.surfaceChangeText=sc.text || "";
+        r.surfaceChanged=!!(oldGroup && newGroup && oldGroup!==newGroup);
+        if(r.surfaceChanged) surfaceCount++;
+    });
+
+    // Keep late condition notes by race and use them in condition-fit recomputation.
     trackConditions={};
     feed.conditions.forEach(c=>{
         const changed=String(c.text||"").match(/changed\s+to\s+([A-Za-z]+)/i);
@@ -2253,16 +2298,16 @@ function applyRSS(raw,fileName="Pasted Content"){
     $("rssFileName").textContent=fileName;
     $("rssFileDate").textContent=feed.feedDate || "Not specified";
     $("rssItemCount").textContent=
-        feed.scratches.length + feed.riders.length + feed.conditions.length;
+        feed.scratches.length + feed.riders.length + feed.conditions.length + feed.surfaces.length;
     $("rssMetaBox").classList.add("show");
 
     renderRows();
 
-    let msg=`Applied ${scratchCount} scratch(es) and ${jockeyCount} jockey change(s)`;
+    let msg=`Applied ${scratchCount} scratch(es), ${jockeyCount} jockey change(s), and ${surfaceCount} runner surface update(s)`;
     if(unmatchedScratches.length) msg+=`; ${unmatchedScratches.length} scratch(es) had no matching race/post`;
     if(unmatchedRiders.length) msg+=`; ${unmatchedRiders.length} rider change(s) had no matching race/post`;
-    if(!feed.scratches.length && !feed.riders.length){
-        msg+=". No scratches or rider changes were found in this feed yet";
+    if(!feed.scratches.length && !feed.riders.length && !feed.surfaces.length && !feed.conditions.length){
+        msg+=". No scratches, rider changes, surface changes, or track-condition changes were found in this feed yet";
     } else {
         msg+=".";
     }
@@ -2662,14 +2707,35 @@ function recentClassScore(horse){
     return avg(vals);
 }
 
+function surfaceGroup(value){
+    const s=String(value||"").trim().toUpperCase();
+    if(!s) return "";
+    if(s==="T" || s.includes("TURF") || s.includes("GRASS")) return "T";
+    if(s==="A" || s.includes("SYNTH") || s.includes("ALL WEATHER") || s.includes("TAPETA") || s.includes("POLY")) return "A";
+    if(s==="D" || s==="M" || s.includes("DIRT") || s.includes("MAIN")) return "D";
+    return s;
+}
+
+function surfaceLabel(value){
+    const g=surfaceGroup(value);
+    if(g==="T") return "Turf";
+    if(g==="D") return "Dirt";
+    if(g==="A") return "Synthetic";
+    return String(value||"Unknown");
+}
+
 function sameSurface(a,b){
-    const group=v=>{
-        const s=String(v||"").toUpperCase();
-        if(s.includes("T")) return "T";
-        if(s.includes("D") || s.includes("M")) return "D";
-        return s;
-    };
-    return group(a) && group(a)===group(b);
+    const ga=surfaceGroup(a), gb=surfaceGroup(b);
+    return !!ga && ga===gb;
+}
+
+function surfaceBestSpeed(horse){
+    const g=surfaceGroup(horse.currentSurface);
+    const cond=conditionGroup(horse.currentTrackCondition);
+    if(g==="T") return number(horse.bestSpeedTurf) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+    if(g==="D" && cond==="OFF") return number(horse.bestSpeedOff) || number(horse.bestSpeedFast) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+    if(g==="D") return number(horse.bestSpeedFast) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+    return number(horse.bestSpeedLife) || number(horse.bestSpeed);
 }
 
 function surfaceSpeedScore(horse){
@@ -2871,12 +2937,16 @@ function speedFormFit(horse,field){
 }
 
 function bestSpeedFit(horse,field){
-    const v=number(horse.bestSpeedTrack) ||
+    // Use the best figure for today's ACTUAL surface. If weather moves the race,
+    // currentSurface is changed by applyRSS() and this recomputes automatically.
+    const v=surfaceBestSpeed(horse) ||
             number(horse.bestSpeedDistance) ||
+            number(horse.bestSpeedTrack) ||
             number(horse.bestSpeedLife);
     return percentileRank(v,field.map(x=>
-        number(x.bestSpeedTrack) ||
+        surfaceBestSpeed(x) ||
         number(x.bestSpeedDistance) ||
+        number(x.bestSpeedTrack) ||
         number(x.bestSpeedLife)
     ));
 }
@@ -3744,7 +3814,8 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
     const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
     return `
     <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
-      <h3><span class="race-number-link" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for all horses in the selected field view">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)</h3>
+      <h3><span class="race-number-link" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for all horses in the selected field view">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)
+      ${shown.some(h=>h.surfaceChanged) ? `<span class="badge badge-red">SURFACE CHANGED — ${safe(surfaceLabel((shown.find(h=>h.surfaceChanged)||shown[0]).currentSurface))}</span>` : ``}</h3>
       <div class="table-wrap"><table class="compact-table"><thead><tr>
         <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Class</th>
       </tr></thead><tbody>
@@ -4161,10 +4232,16 @@ function computeRaceCard(){
             </div>
 
             <div class="metric-line">
+                Surface: <b>${safe(surfaceLabel(top.horse.currentSurface))}</b>
+                ${top.horse.surfaceChanged ? `<span class="badge badge-red">SURFACE CHANGED — RECOMPUTED</span>` : ``}
+                &nbsp; | &nbsp;
                 Track condition: <b>${safe(top.horse.currentTrackCondition || "Not supplied")}</b>
+                &nbsp; | &nbsp;
+                Surface Best Speed: <b>${surfaceBestSpeed(top.horse) || "N/A"}</b>
                 &nbsp; | &nbsp;
                 Morning-line rank: <b>${marketRank || "N/A"}</b>
             </div>
+            ${top.horse.surfaceChanged ? `<div class="warning-box"><b>Weather/surface change:</b> ${safe(surfaceLabel(top.horse.originalSurface))} → ${safe(surfaceLabel(top.horse.currentSurface))}. Surface Fit, condition fit, surface-specific Best Speed, rankings and probabilities were recomputed.</div>` : ``}
 
 
             ${historicalConsensusHTML(activeField, top.horse)}
@@ -5511,6 +5588,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.13 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.14 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
