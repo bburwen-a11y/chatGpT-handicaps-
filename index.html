@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.21 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.22 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.21</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.22</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.21 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.22 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -2747,7 +2747,12 @@ function sameSurface(a,b){
 function surfaceBestSpeed(horse){
     const g=surfaceGroup(horse.currentSurface);
     const cond=conditionGroup(horse.currentTrackCondition);
-    if(g==="T") return number(horse.bestSpeedTurf) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+
+    // v7.22 TURF PROOF FIX:
+    // A dirt/lifetime figure is not a turf figure. In a turf race an unproven
+    // turf horse gets no substitute Best Speed credit from another surface.
+    if(g==="T") return number(horse.bestSpeedTurf);
+
     if(g==="D" && cond==="OFF") return number(horse.bestSpeedOff) || number(horse.bestSpeedFast) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
     if(g==="D") return number(horse.bestSpeedFast) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
     return number(horse.bestSpeedLife) || number(horse.bestSpeed);
@@ -2760,6 +2765,88 @@ function surfaceSpeedScore(horse){
         .map(r=>number(r.speed))
         .filter(v=>v>0);
     return avg(vals);
+}
+
+function recentSurfaceSpeedScore(horse){
+    const vals=(horse.ppRaces||[])
+        .filter(r=>sameSurface(horse.currentSurface,r.surf))
+        .slice(0,5)
+        .map(r=>number(r.speed))
+        .filter(v=>v>0);
+    return avg(vals);
+}
+
+function lastSurfaceSpeed(horse){
+    const pp=(horse.ppRaces||[]).find(r=>sameSurface(horse.currentSurface,r.surf) && number(r.speed)>0);
+    return pp ? number(pp.speed) : 0;
+}
+
+function turfProofStatus(horse){
+    if(surfaceGroup(horse.currentSurface)!=="T"){
+        return {code:"NA",label:"",adjust:0,detail:""};
+    }
+
+    const starts=number(horse.turfStarts);
+    const wins=number(horse.turfWins);
+    const places=number(horse.turfPlaces);
+    const shows=number(horse.turfShows);
+    const itm=wins+places+shows;
+    const recent=(horse.ppRaces||[])
+        .filter(r=>sameSurface("T",r.surf))
+        .slice(0,5);
+    const competitive=recent.filter(r=>{
+        const fin=number(r.fin);
+        const bl=number(r.beatenLengths);
+        return (fin>0 && fin<=4) || (bl>=0 && bl<=5);
+    }).length;
+
+    if(starts<=0){
+        return {
+            code:"UNPROVEN",
+            label:"UNPROVEN TURF",
+            adjust:-0.12,
+            detail:"No prior turf starts. Dirt/lifetime Best Speed is not substituted for turf ability."
+        };
+    }
+    if(starts===1 && itm===0 && competitive===0){
+        return {
+            code:"THIN",
+            label:"THIN TURF",
+            adjust:-0.045,
+            detail:"Only one turf start and no competitive turf finish."
+        };
+    }
+    if(wins>0 || competitive>=2){
+        return {
+            code:"PROVEN",
+            label:"PROVEN TURF",
+            adjust:0.035,
+            detail:`${starts} turf start${starts===1?"":"s"}; ${wins} win${wins===1?"":"s"}; ${competitive} recent competitive turf effort${competitive===1?"":"s"}.`
+        };
+    }
+    if(itm>0 || competitive===1){
+        return {
+            code:"COMPETITIVE",
+            label:"TURF COMPETITIVE",
+            adjust:0.015,
+            detail:`Has shown a competitive turf effort; ${starts} turf start${starts===1?"":"s"}.`
+        };
+    }
+    return {
+        code:"EXPERIENCED",
+        label:"TURF EXPERIENCE",
+        adjust:-0.01,
+        detail:`Has turf experience (${starts} starts) but limited recent competitive evidence.`
+    };
+}
+
+function turfProofHTML(horse){
+    const t=turfProofStatus(horse);
+    if(!t.label) return "";
+    const cls=t.code==="PROVEN" || t.code==="COMPETITIVE" ? "badge-green"
+             : t.code==="UNPROVEN" || t.code==="THIN" ? "badge-red"
+             : "badge-blue";
+    return `<span class="badge ${cls}" title="${safe(t.detail)}">${safe(t.label)}</span>`;
 }
 
 function conditionGroup(value){
@@ -3065,8 +3152,18 @@ function postPositionEvidence(horse,field){
 function calculateHorseScore(horse,field){
 
     const pp=relativeFeature(horse,field,x=>number(x.primePower));
-    const currentSpeed=relativeFeature(horse,field,x=>number(x.lastSpeed));
-    const recentSpeed=speedFormFit(horse,field);
+
+    const todaySurface=surfaceGroup(horse.currentSurface);
+    // On turf, compare turf speed to turf speed. A dirt last-race figure should
+    // not masquerade as today's current-speed evidence.
+    const currentSpeed = todaySurface==="T"
+        ? relativeFeature(horse,field,x=>lastSurfaceSpeed(x))
+        : relativeFeature(horse,field,x=>number(x.lastSpeed));
+
+    const recentSpeed = todaySurface==="T"
+        ? relativeFeature(horse,field,x=>recentSurfaceSpeedScore(x))
+        : speedFormFit(horse,field);
+
     const bestSpeed=bestSpeedFit(horse,field);
     const form=formScore(horse);
     const pace=paceFit(horse,field);
@@ -3117,6 +3214,13 @@ function calculateHorseScore(horse,field){
     // Small, empirical post-position adjustment tied to today's surface/distance.
     score += (postFit-.5)*.05;
 
+    // TURF PROOF GATE. This does not eliminate a turf debut horse, but it prevents
+    // strong dirt Prime Power / dirt speed from overwhelming real turf evidence.
+    // Proven turf horses receive a modest confirmation bump; zero-start turf
+    // horses carry a material uncertainty penalty.
+    const turfProof=turfProofStatus(horse);
+    score += turfProof.adjust;
+
     // Recency: very long layoffs add uncertainty, not an automatic
     // penalty. Recent races are already represented in form/speed.
     const days=number(horse.daysSinceLast);
@@ -3145,7 +3249,7 @@ function calculateHorseScore(horse,field){
         components:{
             pp,currentSpeed,recentSpeed,bestSpeed,form,
             pace,cls,surfaceFit,conditionFit,career,trainer,jockey,combo,workouts,
-            postFit,postData,quality
+            postFit,postData,quality,turfProof
         }
     };
 }
@@ -3356,6 +3460,10 @@ function performanceEarningsSupport(field, horse){
         }else{
             notes.push(`${surfName} too thin to rank`);
         }
+    }
+
+    if(g==="T" && number(horse.turfStarts)<=0){
+        notes.push('UNPROVEN TURF — no turf Best Speed substitute from dirt/lifetime figures');
     }
 
     const sb=rankValue(horse,active,surfaceBestSpeed);
@@ -3908,7 +4016,7 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
             <td>${item?(item.probability*100).toFixed(1)+'%':'-'}</td>
             <td>${safe(h.score||h.primePower||'-')}</td>
             <td>${safe(h.lastSpeed||'-')}</td>
-            <td>${safe(h.odds||'-')}</td>
+            <td>${safe(h.odds||'-')} ${turfProofHTML(h)}</td>
             <td>${classMoveBadge(h)}</td>
             <td>${entryLevelHTML(h)}</td>
             <td>${status}</td>
@@ -4329,6 +4437,7 @@ function computeRaceCard(){
             </div>
             <div class="metric-line">
                 Surface: <b>${safe(surfaceLabel(top.horse.currentSurface))}</b>
+                ${turfProofHTML(top.horse)}
                 ${top.horse.surfaceChanged ? `<span class="badge badge-red">SURFACE CHANGED — RECOMPUTED</span>` : ``}
                 &nbsp; | &nbsp;
                 Track condition: <b>${safe(top.horse.currentTrackCondition || "Not supplied")}</b>
@@ -5690,6 +5799,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.21 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.22 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
