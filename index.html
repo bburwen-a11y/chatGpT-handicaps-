@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.24 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.25 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.24</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.25</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.24 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.25 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -2748,7 +2748,7 @@ function surfaceBestSpeed(horse){
     const g=surfaceGroup(horse.currentSurface);
     const cond=conditionGroup(horse.currentTrackCondition);
 
-    // v7.24 TURF PROOF FIX:
+    // v7.25 TURF PROOF FIX:
     // A dirt/lifetime figure is not a turf figure. In a turf race an unproven
     // turf horse gets no substitute Best Speed credit from another surface.
     if(g==="T") return number(horse.bestSpeedTurf);
@@ -3427,171 +3427,6 @@ function recentSpeedConfirmedHTML(field,horse){
       `<div style="margin-top:5px">final12 historical test signal. Use as race-quality confirmation, not as a guaranteed win probability.</div></div>`;
 }
 
-function exactaAlternativeEvidence(item,scored,field,classMap){
-    const horse=item.horse;
-    const active=(field||[]).filter(h=>!h.scratched);
-    const cls=classMap && classMap[horse.id] ? classMap[horse.id].label : "QUESTIONABLE";
-    const modelRank=1+(scored||[]).findIndex(x=>x.horse.id===horse.id);
-    if(cls==="PRETENDER") return {eligible:false,score:-99,reasons:["Pretender"],modelRank};
-
-    const reasons=[];
-    let score=0;
-
-    // v7.24: underneath horses are evaluated for PLACE suitability, not rewarded
-    // simply because they won a recent race.
-    if(modelRank===2){score+=4;reasons.push("model #2");}
-    else if(modelRank===3){score+=2.5;reasons.push("model #3");}
-    else if(modelRank===4){score+=1;reasons.push("model #4");}
-
-    const fit=entryLevelFit(horse);
-    if(fit.label==="PROVEN" || fit.label==="COMPETITIVE"){
-        score+=2; reasons.push("proven/competitive at level");
-    }else if(fit.label==="CLASS RELIEF"){
-        score+=1.25; reasons.push("class relief");
-    }else if(fit.label==="OVERMATCHED" || fit.label==="UNPROVEN UP"){
-        score-=2; reasons.push(fit.label.toLowerCase());
-    }
-
-    const recent=(horse.ppRaces||[]).slice(0,4).filter(r=>number(r.fin)>0 && number(r.fin)<90);
-    const top3=recent.filter(r=>number(r.fin)<=3).length;
-    const top4=recent.filter(r=>number(r.fin)<=4).length;
-    if(top3>=3){score+=2.5;reasons.push("3+ recent top-3 finishes");}
-    else if(top3===2){score+=1.75;reasons.push("2 recent top-3 finishes");}
-    else if(top3===1 && top4>=2){score+=0.75;reasons.push("recent board consistency");}
-
-    const sameSurf=(horse.ppRaces||[])
-        .filter(r=>sameSurface(horse.currentSurface,r.surf))
-        .slice(0,4)
-        .filter(r=>number(r.fin)>0 && number(r.fin)<90);
-    const sameSurfTop3=sameSurf.filter(r=>number(r.fin)<=3).length;
-    if(sameSurfTop3>=2){score+=1.5;reasons.push("same-surface top-3 consistency");}
-    else if(sameSurfTop3===1){score+=0.5;reasons.push("same-surface board finish");}
-
-    const pe=performanceEarningsSupport(active,horse);
-    if(pe.level==="strong"){score+=2;reasons.push("strong P+E");}
-    else if(pe.level==="solid"){score+=1.25;reasons.push("solid P+E");}
-    else if(pe.level==="mixed"){score+=0.25;reasons.push("mixed P+E");}
-
-    const paceComp=number(item.components && item.components.pace);
-    if(paceComp>=0.67){score+=1.25;reasons.push("pace fit");}
-    else if(paceComp>0 && paceComp<0.33){score-=0.75;reasons.push("weak pace fit");}
-
-    const a3=rankValue(horse,active,avg3RaceSpeed);
-    if(a3.count>=3 && a3.rank===1){score+=1.5;reasons.push("#1 Avg-3 Speed");}
-    else if(a3.count>=3 && a3.rank===2){score+=0.75;reasons.push("#2 Avg-3 Speed");}
-
-    const sb=rankValue(horse,active,surfaceBestSpeed);
-    if(sb.count>=3 && sb.rank===1){score+=1.5;reasons.push("#1 Surface Best Speed");}
-    else if(sb.count>=3 && sb.rank===2){score+=0.75;reasons.push("#2 Surface Best Speed");}
-
-    const turf=turfProofStatus(horse);
-    if(surfaceGroup(horse.currentSurface)==="T"){
-        if(turf.code==="PROVEN"){score+=1.5;reasons.push("proven turf");}
-        else if(turf.code==="COMPETITIVE"){score+=0.75;reasons.push("turf competitive");}
-        else if(turf.code==="UNPROVEN"){score-=3;reasons.push("unproven turf");}
-        else if(turf.code==="THIN"){score-=1;reasons.push("thin turf");}
-    }
-
-    if(cls==="CONTENDER"){score+=0.75;reasons.push("Contender");}
-
-    // Win-level evidence is deliberately strict; it is the only way v7.24
-    // permits reversing the exacta into a box.
-    const winLevel =
-        modelRank===2 &&
-        score>=8 &&
-        (pe.level==="strong" || pe.level==="solid") &&
-        (a3.rank===1 || sb.rank===1 || sameSurfTop3>=2) &&
-        !(surfaceGroup(horse.currentSurface)==="T" && turf.code==="UNPROVEN");
-
-    return {
-        eligible:score>=5,
-        winLevel,
-        score,reasons,modelRank,performance:pe,avg3:a3,best:sb,
-        fit,sameSurfTop3,top3
-    };
-}
-
-function exactaRecommendation(scored,field,classMap,decision){
-    const active=(field||[]).filter(h=>!h.scratched);
-    if(!scored || scored.length<2 || !decision || decision.pass || active.length<4){
-        return {play:false,text:"",alternatives:[]};
-    }
-
-    const top=scored[0];
-    if(top.horse.scratched) return {play:false,text:"",alternatives:[]};
-
-    const topRecent=recentSpeedConfirmedInfo(active,top.horse);
-    const topPE=performanceEarningsSupport(active,top.horse);
-    const topSC=speedConfirmedInfo(active,top.horse).confirmed;
-    const topFit=entryLevelFit(top.horse);
-    const topTurf=turfProofStatus(top.horse);
-
-    // Key horse needs independent confirmation and cannot be an obvious
-    // entry-level/surface question mark.
-    const keyQualified =
-        (topRecent.confirmed || topSC || topPE.level==="strong" || topPE.level==="solid") &&
-        topFit.label!=="OVERMATCHED" &&
-        topFit.label!=="UNPROVEN UP" &&
-        !(surfaceGroup(top.horse.currentSurface)==="T" && topTurf.code==="UNPROVEN");
-
-    if(!keyQualified) return {play:false,text:"",alternatives:[]};
-
-    const candidates=scored.slice(1).map(item=>{
-        const ev=exactaAlternativeEvidence(item,scored,active,classMap);
-        return {item,ev};
-    }).filter(x=>x.ev.eligible)
-      .sort((a,b)=>b.ev.score-a.ev.score || b.item.probability-a.item.probability);
-
-    if(!candidates.length) return {play:false,text:"",alternatives:[]};
-
-    const topPost=String(top.horse.post||"");
-    if(!topPost) return {play:false,text:"",alternatives:[]};
-
-    const best=candidates[0];
-    const bestPost=String(best.item.horse.post||"");
-    if(!bestPost) return {play:false,text:"",alternatives:[]};
-
-    // Box only when the underneath horse independently qualifies as a win-level
-    // rival. No recent-win shortcut.
-    const surfaceFormBox =
-        !topRecent.confirmed &&
-        best.ev.modelRank<=2 &&
-        best.ev.score>=11 &&
-        best.ev.sameSurfTop3>=2 &&
-        (surfaceGroup(best.item.horse.currentSurface)!=="T" || turfProofStatus(best.item.horse).code==="PROVEN");
-
-    if(best.ev.winLevel || surfaceFormBox){
-        return {
-            play:true,box:true,key:top.horse,alternatives:[best],
-            ticket:`EXACTA BOX: #${topPost}, #${bestPost}`,
-            text:`Two-horse box ${top.horse.horse} / ${best.item.horse.horse}. The reverse is allowed only because the alternative has exceptional independent same-surface/form evidence and the key is not already Recent Speed Confirmed.`
-        };
-    }
-
-    // Straight exacta: key over the best PLACE candidate. A second underneath
-    // horse is added only if it is close in evidence score.
-    const alts=[best];
-    if(candidates[1] && candidates[1].ev.score>=best.ev.score-0.75 && candidates[1].ev.score>=6){
-        alts.push(candidates[1]);
-    }
-    const altPosts=alts.map(x=>String(x.item.horse.post||"")).filter(Boolean);
-
-    return {
-        play:true,box:false,key:top.horse,alternatives:alts,
-        ticket:`EXACTA: #${topPost} over ${altPosts.map(p=>"#"+p).join(", ")}`,
-        text:`Key ${top.horse.horse} over ${alts.map(x=>x.item.horse.horse).join(" / ")}. Underneath ranking emphasizes model position, class fit, pace suitability, recent board consistency, surface evidence, and Performance + Earnings.`
-    };
-}
-
-function exactaRecommendationHTML(scored,field,classMap,decision){
-    const ex=exactaRecommendation(scored,field,classMap,decision);
-    if(!ex.play) return `<div class="metric-line"><b>Exacta:</b> NO PLAY — insufficient key/underneath evidence.</div>`;
-
-    return `<div class="hist-confirm"><span class="hist-tag">EXACTA PLAY</span>`+
-      `<b>${safe(ex.ticket)}</b>`+
-      `<div style="margin-top:5px">${safe(ex.text)}</div></div>`;
-}
-
 function fieldTopHorse(field, selector){
     const valid=(field || [])
         .map(h=>({h,v:number(selector(h))}))
@@ -3734,7 +3569,7 @@ function raceBetQuality(field, modelTopHorse){
             text:'Performance and earnings evidence is too thin or too mixed to upgrade this race.'};
     }
 
-    // v7.24: Recent Speed Confirmed can strengthen a race, but cannot by itself
+    // v7.25: Recent Speed Confirmed can strengthen a race, but cannot by itself
     // manufacture a STRONG bet. It needs class/surface proof and P+E support.
     if(recentConfirm.confirmed && ftsCount===0 && fieldSize<=9 && supportOK && surfaceOK && (classOK || lightlyRacedWinner)){
         return {level:'strong',label:'BET — STRONG',fieldSize,ftsCount,support,recentConfirm,fit,
@@ -3774,6 +3609,43 @@ function raceBetQualityHTML(field, modelTopHorse){
     const q=raceBetQuality(field,modelTopHorse);
     return `<div class="race-quality rq-${q.level}"><span class="rq-tag">${safe(q.label)}</span>${safe(q.text)} <b>No historical profile percentage is being assigned to this new evidence set.</b></div>`;
 }
+
+function modelBestBetProfile(scored,field){
+    if(!scored || !scored.length) return {qualifies:false,reasons:[]};
+    const active=(field||[]).filter(h=>!h.scratched);
+    const top=scored[0];
+    const second=scored[1];
+    const horse=top.horse;
+    const reasons=[];
+
+    const raceLabel=raceTypeLabel(horse.raceType).toLowerCase();
+    const maiden=raceLabel.includes("maiden");
+    const quality=top.components?.quality || dataQuality(horse);
+    const separation=second ? (top.probability-second.probability) : top.probability;
+    const structural=raceDecision(top,active);
+    const surfGroup=surfaceGroup(horse.currentSurface);
+    const turf=turfProofStatus(horse);
+    const surfaceOK=surfGroup!=="T" || turf.code==="PROVEN" || turf.code==="COMPETITIVE";
+
+    if(maiden) reasons.push("maiden race");
+    if(quality.label!=="COMPLETE") reasons.push("core data not complete");
+    if(top.probability<0.50) reasons.push("model share below 50%");
+    if(separation<0.25) reasons.push("model separation below 25 points");
+    if(structural.pass) reasons.push(...structural.reasons);
+    if(!surfaceOK) reasons.push("surface evidence not proven/competitive");
+
+    // This restores the pre-result profile that identified the strongest
+    // non-maiden model leaders on SAR07 without using race results.
+    const qualifies =
+        !maiden &&
+        quality.label==="COMPLETE" &&
+        top.probability>=0.50 &&
+        separation>=0.25 &&
+        !structural.pass &&
+        surfaceOK;
+
+    return {qualifies,reasons,separation,quality,surfaceOK};
+}
 function finalRaceDecision(top,field){
     const structural=raceDecision(top,field);
     const quality=raceBetQuality(field,top.horse);
@@ -3794,6 +3666,7 @@ function openProbability(raceNum){
       <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
       <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
       <div class="metric-line">Decision: <b>${safe(d.decision.label || (d.pass ? "PASS" : "REVIEW"))}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
+      ${d.bestProfile?.qualifies ? `<div class="metric-line"><b>MODEL BEST BET:</b> complete-data non-maiden leader with ${(d.probability*100).toFixed(1)}% model share and ${(d.bestProfile.separation*100).toFixed(1)}-point separation.</div>` : ""}
       ${d.recentSpeedConfirmed?.confirmed ? `<div class="metric-line"><b>Recent Speed Confirmed:</b> ${safe(d.recentSpeedConfirmed.text)}</div>` : ""}
       ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
       ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
@@ -4487,6 +4360,22 @@ function computeRaceCard(){
         const quality=top.components.quality;
 
         const decision=finalRaceDecision(top,activeField);
+        const bestProfile=modelBestBetProfile(scored,activeField);
+
+        // MODEL BEST BET is independent of the newer P+E filter. P+E remains
+        // supporting evidence, but it cannot erase a strongly separated,
+        // complete-data, non-maiden top selection.
+        if(bestProfile.qualifies){
+            decision.pass=false;
+            decision.label="BEST BET";
+            decision.reasons=[];
+            decision.quality={
+                ...decision.quality,
+                level:"strong",
+                label:"BEST BET",
+                text:`Complete-data non-maiden model leader with ${(top.probability*100).toFixed(1)}% model share and ${(bestProfile.separation*100).toFixed(1)}-point separation. Performance + Earnings remains supporting evidence, not a veto.`
+            };
+        }
 
 
         const marketOrder=activeField
@@ -4522,7 +4411,8 @@ function computeRaceCard(){
             marketRank,
             recentSpeedConfirmed:recentSpeedConfirmedInfo(activeField,top.horse),
             performanceSupport:performanceEarningsSupport(activeField,top.horse),
-            raceQuality:decision.quality
+            raceQuality:decision.quality,
+            bestProfile
         };
 
         const decisionClassMap={};
@@ -4535,7 +4425,9 @@ function computeRaceCard(){
             pass:passFlag, close:closeRace, marketRank,
             speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed,
             recentSpeedConfirmed:recentSpeedConfirmedInfo(activeField,top.horse),
-            exacta:exactaRecommendation(scored,activeField,decisionClassMap,decision),
+            bestProfile,
+            probability:top.probability,
+            separation:bestProfile.separation,
             performanceSupport:perfSupport,
             activeFieldSize:activeField.length
         });
@@ -4683,8 +4575,9 @@ function computeRaceCard(){
 
             ${recentSpeedConfirmedHTML(activeField, top.horse)}
             ${performanceEarningsHTML(activeField, top.horse)}
-            ${raceBetQualityHTML(activeField, top.horse)}
-            ${exactaRecommendationHTML(scored,activeField,decisionClassMap,decision)}
+            ${bestProfile.qualifies
+                ? `<div class="race-quality rq-strong"><span class="rq-tag">BEST BET</span>${safe(decision.quality.text)}</div>`
+                : raceBetQualityHTML(activeField, top.horse)}
 
 
             <div class="reason-box">
@@ -4798,24 +4691,28 @@ function computeRaceCard(){
                number(a.race)-number(b.race);
     });
     const bestBetRaces=rankedBetRaces.filter(x=>
-        !x.pass &&
         !x.horse.scratched &&
         !x.close &&
-        (x.quality.level==="strong" || (x.quality.level==="standard" && x.recentSpeedConfirmed?.confirmed)) &&
-        (x.performanceSupport?.level==="strong" || x.performanceSupport?.level==="solid")
+        (
+            x.bestProfile?.qualifies ||
+            (
+                !x.pass &&
+                (x.quality.level==="strong" || (x.quality.level==="standard" && x.recentSpeedConfirmed?.confirmed)) &&
+                (x.performanceSupport?.level==="strong" || x.performanceSupport?.level==="solid")
+            )
+        )
     );
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        Best Races is intentionally selective: scratched and close races are removed; Strong/Solid Performance + Earnings is required; STANDARD races also need Recent Speed Confirmed. Lightly raced prior winners are not automatically rejected for a normal class rise.
+        Best Races preserves strongly separated, complete-data non-maiden model leaders even when Performance + Earnings is thin. Scratched and close races are removed. P+E and Recent Speed remain supporting evidence rather than automatic vetoes.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
           <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
-          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.quality.label)}</span>
+          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET":x.quality.label)}</span>
           ${x.recentSpeedConfirmed?.confirmed?'<span class="badge badge-green">RECENT SPEED CONFIRMED</span>':''}
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
-          ${x.exacta?.play?`<span class="badge badge-blue">${safe(x.exacta.ticket)}</span>`:''}
           ${x.performanceSupport?.level==='strong'?'<span class="badge badge-green">STRONG P+E</span>':(x.performanceSupport?.level==='solid'?'<span class="badge badge-blue">SOLID P+E</span>':'')}
           ${x.close?'<span class="badge">CLOSE RACE</span>':''}
           <div class="metric-line">${safe(x.quality.text)}</div>
@@ -4842,7 +4739,7 @@ function computeRaceCard(){
                 proven win probability. Tap it for the horse's data quality and
                 interpretation. PASS is automatic only for specialty/jump-distance races, poor core-data
                 coverage, or fields with many first-time starters. Exact-condition
-                mismatches are warnings rather than a separate contradictory PASS. RECENT SPEED CONFIRMED means the morning-line favorite is also #1 Avg-3 Speed; #1 Last Speed adds confirmation. EXACTA PLAY is conservative and requires independently qualified underneath horses. PRICE CANDIDATE means model rank #1 is morning-line
+                mismatches are warnings rather than a separate contradictory PASS. RECENT SPEED CONFIRMED means the morning-line favorite is also #1 Avg-3 Speed; #1 Last Speed adds confirmation. PRICE CANDIDATE means model rank #1 is morning-line
                 rank #3 or higher; it is a review flag, not a proven edge.
                 Tap the horse name to jump to that race's Full Field and open the horse's complete Past Performances.
 
@@ -6042,6 +5939,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.24 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.25 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
