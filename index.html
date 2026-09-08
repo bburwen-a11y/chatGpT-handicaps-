@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.25 · September 7, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.26 · September 7, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.25</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.26</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.25 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.26 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -2748,7 +2748,7 @@ function surfaceBestSpeed(horse){
     const g=surfaceGroup(horse.currentSurface);
     const cond=conditionGroup(horse.currentTrackCondition);
 
-    // v7.25 TURF PROOF FIX:
+    // v7.26 TURF PROOF FIX:
     // A dirt/lifetime figure is not a turf figure. In a turf race an unproven
     // turf horse gets no substitute Best Speed credit from another surface.
     if(g==="T") return number(horse.bestSpeedTurf);
@@ -3569,7 +3569,7 @@ function raceBetQuality(field, modelTopHorse){
             text:'Performance and earnings evidence is too thin or too mixed to upgrade this race.'};
     }
 
-    // v7.25: Recent Speed Confirmed can strengthen a race, but cannot by itself
+    // v7.26: Recent Speed Confirmed can strengthen a race, but cannot by itself
     // manufacture a STRONG bet. It needs class/surface proof and P+E support.
     if(recentConfirm.confirmed && ftsCount===0 && fieldSize<=9 && supportOK && surfaceOK && (classOK || lightlyRacedWinner)){
         return {level:'strong',label:'BET — STRONG',fieldSize,ftsCount,support,recentConfirm,fit,
@@ -3636,15 +3636,30 @@ function modelBestBetProfile(scored,field){
 
     // This restores the pre-result profile that identified the strongest
     // non-maiden model leaders on SAR07 without using race results.
+    const support=performanceEarningsSupport(active,horse);
+    const fit=entryLevelFit(horse);
+    const recent=(horse.ppRaces||[]).slice(0,4).filter(r=>number(r.fin)>0 && number(r.fin)<90);
+    const recentTop3=recent.filter(r=>number(r.fin)<=3).length;
+    const sameSurf=(horse.ppRaces||[]).filter(r=>sameSurface(horse.currentSurface,r.surf)).slice(0,4).filter(r=>number(r.fin)>0 && number(r.fin)<90);
+    const sameSurfTop3=sameSurf.filter(r=>number(r.fin)<=3).length;
+    const classOK=fit.label==="PROVEN" || fit.label==="COMPETITIVE" || fit.label==="CLASS RELIEF";
+    const supportOK=support.level==="strong" || support.level==="solid";
+    const formSurfaceOK=recentTop3>=2 || sameSurfTop3>=2;
+
+    // v7.26 guardrail: model separation alone cannot create a BEST BET.
+    // A strongly separated leader must also have Strong/Solid Performance + Earnings support. Class/form remain supporting context but cannot substitute for thin P+E.
     const qualifies =
         !maiden &&
         quality.label==="COMPLETE" &&
         top.probability>=0.50 &&
         separation>=0.25 &&
         !structural.pass &&
-        surfaceOK;
+        surfaceOK &&
+        supportOK;
 
-    return {qualifies,reasons,separation,quality,surfaceOK};
+    if(!supportOK) reasons.push("model separation lacks Strong/Solid Performance + Earnings support");
+
+    return {qualifies,reasons,separation,quality,surfaceOK,support,fit,recentTop3,sameSurfTop3};
 }
 function finalRaceDecision(top,field){
     const structural=raceDecision(top,field);
@@ -4373,7 +4388,7 @@ function computeRaceCard(){
                 ...decision.quality,
                 level:"strong",
                 label:"BEST BET",
-                text:`Complete-data non-maiden model leader with ${(top.probability*100).toFixed(1)}% model share and ${(bestProfile.separation*100).toFixed(1)}-point separation. Performance + Earnings remains supporting evidence, not a veto.`
+                text:`Complete-data non-maiden model leader with ${(top.probability*100).toFixed(1)}% model share and ${(bestProfile.separation*100).toFixed(1)}-point separation. Strong/Solid Performance + Earnings must support the model leader; separation alone is not enough.`
             };
         }
 
@@ -4705,7 +4720,7 @@ function computeRaceCard(){
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        Best Races preserves strongly separated, complete-data non-maiden model leaders even when Performance + Earnings is thin. Scratched and close races are removed. P+E and Recent Speed remain supporting evidence rather than automatic vetoes.
+        Best Races keeps strongly separated, complete-data non-maiden leaders only when Strong/Solid Performance + Earnings also supports them. Scratched and close races are removed.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
@@ -5939,6 +5954,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.25 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.26 · iPhone/Safari build 2026-09-07</div>
 </body>
 </html>
