@@ -1,0 +1,5695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Horse Handicap v7.19 · September 7, 2026 — iPhone / Safari</title>
+
+<style>
+:root{
+  --board-950:#0F2A20;
+  --board-900:#15332A;
+  --board-800:#1B3A2C;
+  --paper:#F1E9D6;
+  --paper-dim:#E4D9BE;
+  --paper-line:#CFC2A0;
+  --amber:#D9A73B;
+  --amber-dim:#8A6A26;
+  --red:#8B2A2A;
+  --green:#2E6E45;
+  --blue:#315A7D;
+  --ink:#1E1B14;
+  --ink-soft:#4A4433;
+  --mono:ui-monospace,"SF Mono","Roboto Mono","Courier New",monospace;
+  --sans:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  background:#fff;
+  color:var(--ink);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+
+.wrap{
+  max-width:1400px;
+  margin:0 auto;
+}
+
+header{
+  background:linear-gradient(180deg,var(--board-900),var(--board-950));
+  padding:30px 20px 25px;
+  border-bottom:3px solid var(--amber-dim);
+}
+
+.eyebrow{
+  font-family:var(--mono);
+  color:var(--amber);
+  font-size:12px;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  margin:0 0 8px;
+}
+
+h1{
+  margin:0;
+  color:var(--paper);
+  font-weight:800;
+  font-size:clamp(26px,5vw,40px);
+}
+
+.tagline{
+  color:#B9C9BE;
+  font-size:14px;
+  max-width:75ch;
+  margin:10px 0 0;
+  line-height:1.5;
+}
+
+main{
+  background:var(--paper);
+  padding:22px 16px 60px;
+}
+
+section{
+  margin-bottom:30px;
+}
+
+h2{
+  font-size:13px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-soft);
+  margin:0 0 14px;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+h2::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:var(--paper-line);
+}
+
+.step-num{
+  font-family:var(--mono);
+  background:var(--board-950);
+  color:var(--amber);
+  font-size:11px;
+  padding:3px 7px;
+  border-radius:2px;
+}
+
+/* UPLOAD */
+
+.upload-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+  gap:15px;
+}
+
+.upload-card{
+  border:1.5px dashed var(--paper-line);
+  border-radius:5px;
+  padding:17px;
+  background:var(--paper-dim);
+}
+
+.upload-card h3{
+  margin:0 0 6px;
+  font-size:15px;
+}
+
+.upload-card p{
+  margin:0 0 12px;
+  font-size:12px;
+  color:var(--ink-soft);
+  line-height:1.5;
+}
+
+.file-btn{
+  display:inline-flex;
+  align-items:center;
+  background:var(--board-950);
+  color:var(--paper);
+  border:none;
+  padding:9px 14px;
+  border-radius:4px;
+  font-size:12.5px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.file-btn:hover{
+  background:var(--board-800);
+}
+
+input[type=file]{
+  display:block;
+  width:100%;
+  margin-top:10px;
+  padding:8px;
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  background:#fff;
+  font-size:12px;
+}
+
+.status{
+  font-family:var(--mono);
+  font-size:11.5px;
+  margin-top:8px;
+  min-height:16px;
+  white-space:pre-wrap;
+}
+
+.status.ok{
+  color:var(--green);
+  font-weight:700;
+}
+
+.status.err{
+  color:var(--red);
+  font-weight:700;
+}
+
+.file-meta-box{
+  margin-top:9px;
+  padding:8px 10px;
+  background:#fff;
+  border:1px solid var(--paper-line);
+  border-radius:3px;
+  font-family:var(--mono);
+  font-size:11px;
+  display:none;
+  line-height:1.6;
+}
+
+.file-meta-box.show{
+  display:block;
+}
+
+/* BUTTONS */
+
+.table-actions{
+  display:flex;
+  gap:9px;
+  margin-top:11px;
+  flex-wrap:wrap;
+}
+
+.primary-btn,
+.ghost-btn,
+.small-btn{
+  border-radius:4px;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.primary-btn{
+  background:var(--amber);
+  color:var(--ink);
+  border:none;
+  padding:11px 21px;
+  font-size:13px;
+}
+
+.ghost-btn{
+  background:none;
+  border:1px solid var(--ink-soft);
+  color:var(--ink-soft);
+  padding:10px 15px;
+  font-size:12.5px;
+}
+
+.small-btn{
+  background:transparent;
+  border:1px solid var(--board-950);
+  color:var(--board-950);
+  padding:5px 9px;
+  font-size:11px;
+}
+
+/* TABLE */
+
+.table-wrap{
+  overflow-x:auto;
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  background:#fff;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  min-width:1100px;
+}
+
+thead th{
+  text-align:left;
+  font-family:var(--mono);
+  font-size:10px;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:var(--paper);
+  background:var(--board-900);
+  padding:9px;
+  white-space:nowrap;
+}
+
+tbody td{
+  padding:5px 6px;
+  border-bottom:1px solid var(--paper-line);
+  vertical-align:middle;
+}
+
+tbody tr:nth-child(even){
+  background:rgba(0,0,0,.018);
+}
+
+tbody input{
+  border:1px solid transparent;
+  background:transparent;
+  padding:4px 5px;
+  font-size:12px;
+  width:100%;
+}
+
+tbody input:hover,
+tbody input:focus{
+  border-color:var(--paper-line);
+  background:#fff;
+}
+
+.scratched-row{
+  opacity:.45;
+}
+
+.scratched-row input{
+  text-decoration:line-through;
+}
+
+.del-btn{
+  background:none;
+  border:none;
+  color:var(--red);
+  cursor:pointer;
+  font-size:15px;
+}
+
+/* TABS */
+
+.tabbar{
+  display:none;
+  gap:0;
+  margin:0 0 18px;
+  border-bottom:2px solid var(--paper-line);
+  overflow-x:auto;
+}
+
+.tabbar button{
+  appearance:none;
+  background:none;
+  border:none;
+  cursor:pointer;
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  padding:10px 13px;
+  color:var(--ink-soft);
+  border-bottom:3px solid transparent;
+  margin-bottom:-2px;
+  white-space:nowrap;
+}
+
+.tabbar button.on{
+  color:var(--board-950);
+  border-bottom-color:var(--board-950);
+  font-weight:800;
+}
+
+/* BEST BETS */
+
+.bestof{
+  border:2px solid var(--board-950);
+  border-radius:5px;
+  padding:17px;
+  background:var(--paper);
+}
+
+.bestof h3{
+  margin:0 0 4px;
+  font-size:18px;
+}
+
+.best-pick{
+  border:1px solid var(--paper-line);
+  border-left:6px solid var(--amber);
+  border-radius:4px;
+  background:#fff;
+  padding:14px;
+  margin:11px 0;
+}
+
+.best-header{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.best-race{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--board-950);
+  font-weight:800;
+}
+
+.best-horse{
+  font-size:16px;
+  font-weight:800;
+  margin-top:3px;
+}
+
+.model-prob{
+  font-family:var(--mono);
+  font-size:20px;
+  font-weight:800;
+  color:var(--board-950);
+}
+
+.prob-button{
+  appearance:none;
+  border:0;
+  border-bottom:1px dotted currentColor;
+  background:transparent;
+  padding:0;
+  font:inherit;
+  color:inherit;
+  cursor:pointer;
+}
+
+#probOverlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:120;
+  background:rgba(15,42,32,.76);
+  padding:16px;
+  overflow-y:auto;
+}
+
+#probOverlay.show{display:block}
+
+.prob-card{
+  position:relative;
+  max-width:520px;
+  margin:8vh auto 0;
+  padding:20px;
+  border:2px solid var(--amber-dim);
+  border-radius:6px;
+  background:var(--paper);
+  box-shadow:0 18px 60px rgba(0,0,0,.35);
+}
+
+.confidence{
+  font-family:var(--mono);
+  font-size:11px;
+  font-weight:800;
+}
+
+.conf-strong{
+  color:var(--green);
+}
+
+.conf-solid{
+  color:var(--blue);
+}
+
+.conf-lean{
+  color:#8A6A26;
+}
+
+.conf-caution{
+  color:var(--red);
+}
+
+.metric-line{
+  font-family:var(--mono);
+  font-size:11px;
+  color:var(--ink-soft);
+  line-height:1.65;
+  margin-top:5px;
+}
+
+.reason-box{
+  margin-top:8px;
+  padding:9px;
+  background:var(--paper-dim);
+  border-radius:3px;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.warning-box{
+  margin-top:9px;
+  padding:8px 9px;
+  background:#fff4d0;
+  border:1px solid #d8bd68;
+  border-radius:3px;
+  font-size:11.5px;
+  line-height:1.45;
+}
+
+.badge{
+  display:inline-block;
+  background:var(--board-950);
+  color:var(--amber);
+  font-family:var(--mono);
+  font-size:10px;
+  padding:2px 5px;
+  border-radius:3px;
+  font-weight:800;
+  margin-left:4px;
+}
+
+.badge-red{
+  background:var(--red);
+  color:#fff;
+}
+
+.badge-green{
+  background:var(--green);
+  color:#fff;
+}
+
+.badge-blue{
+  background:var(--blue);
+  color:#fff;
+}
+
+/* CARDS */
+
+.race-card,
+.analysis-card,
+.h2h-card{
+  border:1px solid var(--paper-line);
+  background:#fff;
+  border-radius:4px;
+  padding:15px;
+  margin-bottom:15px;
+}
+
+.race-card h3,
+.analysis-card h3,
+.h2h-card h3{
+  margin:0 0 10px;
+  font-size:16px;
+}
+
+.compact-table{
+  width:100%;
+  min-width:900px;
+  font-size:11.5px;
+}
+
+.compact-table th{
+  padding:6px;
+}
+
+.compact-table td{
+  padding:6px;
+}
+
+/* ANALYSIS */
+
+.analysis-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+}
+
+@media(max-width:700px){
+  .analysis-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.analysis-box{
+  border:1px solid var(--paper-line);
+  border-radius:4px;
+  padding:12px;
+  background:var(--paper-dim);
+}
+
+.analysis-box.contender{
+  border-left:5px solid var(--green);
+}
+
+.analysis-box.questionable{
+  border-left:5px solid #b7791f;
+}
+
+.analysis-box.pretender{
+  border-left:5px solid var(--red);
+}
+
+.field-view-toggle{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.field-view-toggle button{border:1px solid var(--paper-line);background:#fff;padding:8px 12px;border-radius:4px;font:700 11px var(--mono);cursor:pointer}.field-view-toggle button.on{background:var(--board-950);color:#fff}.trainer-multi{display:inline-block;margin-left:5px;padding:2px 5px;border-radius:3px;background:#fff3cd;color:#6b4f00;font:800 9px var(--mono)}
+
+.analysis-box h4{
+  margin:0 0 8px;
+  font-family:var(--mono);
+  font-size:11px;
+  text-transform:uppercase;
+}
+
+.analysis-item{
+  padding:7px 0;
+  border-bottom:1px dotted var(--paper-line);
+  font-size:12px;
+  line-height:1.4;
+}
+
+/* H2H */
+
+.h2h-select-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-bottom:15px;
+}
+
+@media(max-width:700px){
+  .h2h-select-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.h2h-select-grid select{
+  width:100%;
+  padding:8px;
+  border:1px solid var(--paper-line);
+  border-radius:3px;
+  font-family:var(--mono);
+}
+
+.h2h-comparison-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+@media(max-width:700px){
+  .h2h-comparison-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+.h2h-stat{
+  font-family:var(--mono);
+  font-size:11px;
+  padding:5px 0;
+  border-bottom:1px dotted var(--paper-line);
+}
+
+/* MODAL */
+
+#ppOverlay{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(15,42,32,.7);
+  z-index:100;
+  overflow-y:auto;
+  padding:12px;
+}
+
+#ppOverlay.show{
+  display:block;
+}
+
+.pp-card{
+  max-width:1050px;
+  margin:15px auto;
+  background:var(--paper);
+  border-radius:5px;
+  border:1px solid var(--paper-line);
+  padding:18px;
+  position:relative;
+}
+
+.pp-close{
+  position:absolute;
+  top:8px;
+  right:10px;
+  background:none;
+  border:none;
+  font-size:22px;
+  cursor:pointer;
+}
+
+.pp-table{
+  width:100%;
+  min-width:750px;
+  border-collapse:collapse;
+  font-family:var(--mono);
+  font-size:10.5px;
+}
+
+.pp-table th{
+  background:var(--board-900);
+  color:var(--paper);
+  padding:6px;
+}
+
+.pp-table td{
+  padding:5px;
+  border-bottom:1px solid var(--paper-line);
+}
+
+.pp-h2h-beater{
+  font-weight:900;
+  text-decoration:underline;
+  text-decoration-thickness:1px;
+}
+
+.pp-current-runner{
+  font-weight:700;
+}
+
+.work-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:8px;
+}
+
+.work-item{
+  background:#fff;
+  border:1px solid var(--paper-line);
+  padding:8px;
+  border-radius:3px;
+  font-family:var(--mono);
+  font-size:10.5px;
+}
+  .race-number-link{
+    cursor:pointer;
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:8px;
+    background:#f3f4f6;
+    border:1px solid #9ca3af;
+    font-weight:800;
+    text-decoration:none;
+  }
+  .race-number-link:hover{ background:#e5e7eb; }
+  .race-anchor-target{ scroll-margin-top:80px; }
+
+
+  .hist-confirm{
+    margin-top:10px;
+    padding:10px 12px;
+    border-radius:4px;
+    border:1px solid #2E6E45;
+    background:rgba(46,110,69,.08);
+    font-size:12.5px;
+    line-height:1.55;
+  }
+  .hist-confirm b{color:#1F5231;}
+  .hist-confirm.neutral{
+    border-color:#CFC2A0;
+    background:rgba(0,0,0,.025);
+    color:#4A4433;
+  }
+  .hist-confirm.warn{
+    border-color:#C08A2E;
+    background:#FFF8E6;
+  }
+  .hist-tag{
+    display:inline-block;
+    margin-right:7px;
+    padding:2px 7px;
+    border-radius:10px;
+    background:#2E6E45;
+    color:white;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.06em;
+  }
+
+
+  .race-quality{
+    margin-top:10px;
+    padding:11px 12px;
+    border-radius:5px;
+    border:1px solid #9ca3af;
+    font-size:12.5px;
+    line-height:1.5;
+  }
+  .race-quality.rq-strong{border-color:#1f6b3a;background:#eef8f1;}
+  .race-quality.rq-standard{border-color:#527a5d;background:#f4f8f5;}
+  .race-quality.rq-caution{border-color:#b98222;background:#fff8e6;}
+  .race-quality.rq-pass{border-color:#9b4b42;background:#fff1ef;}
+  .rq-tag{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:10px;
+    margin-right:7px;
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:.05em;
+  }
+  .rq-strong .rq-tag{background:#1f6b3a;color:#fff;}
+  .rq-standard .rq-tag{background:#527a5d;color:#fff;}
+  .rq-caution .rq-tag{background:#b98222;color:#fff;}
+  .rq-pass .rq-tag{background:#9b4b42;color:#fff;}
+
+</style>
+
+<style id="v79-updates">
+.pp-current-contender{
+  font-weight:800;
+  background:#FFF3D0;
+  padding:0 3px;
+  border-radius:2px;
+}
+.decision-also{
+  margin-top:10px;
+  padding:9px 11px;
+  border-left:3px solid #C08A2E;
+  background:rgba(217,167,59,.08);
+  font-size:12px;
+  line-height:1.55;
+}
+.decision-also b{color:var(--ink);}
+.rss-guard{
+  margin-top:8px;
+  padding:8px 10px;
+  border:1px solid #C08A2E;
+  background:#FFFBEF;
+  border-radius:3px;
+  font-size:12px;
+  line-height:1.5;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="wrap">
+
+<header>
+<p class="eyebrow">Professional Handicapping & Value Engine</p>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.18</span></h1>
+<p class="tagline">
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.19 strengthens the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
+</p>
+</header>
+
+<main>
+
+<!-- =========================================================
+     STEP 1
+========================================================= -->
+
+<section>
+
+<h2>
+<span class="step-num">1</span>
+Load Race Data & Scratches / Rider Changes
+</h2>
+
+<div class="upload-grid">
+
+<div class="upload-card">
+
+<h3>Brisnet .DRF Single File</h3>
+
+<p>
+Reads the Brisnet single-file layout and handles DRF/CSV/TXT content, BOM, CRLF/LF and common delimiters. The picker intentionally accepts any file type so iPhone Files does not hide .DRF files.
+</p>
+
+<label class="file-btn" for="drfInput">
+Select Brisnet file
+</label>
+
+<button class="small-btn" id="loadSampleBtn" type="button" style="margin-left:6px;">Preview supplied TDN card</button>
+
+<input
+type="file"
+id="drfInput"
+accept=".drf,.csv,.txt,.zip,text/csv,text/plain,application/zip"
+>
+
+<div id="drfStatus" class="status"></div>
+
+<div class="file-meta-box" id="drfMetaBox">
+<div><strong>File:</strong> <span id="drfFileName">-</span></div>
+<div><strong>Bytes:</strong> <span id="drfBytes">-</span></div>
+<div><strong>Records:</strong> <span id="drfRecords">-</span></div>
+<div><strong>Largest record:</strong> <span id="drfFields">-</span> fields</div>
+<div><strong>Parsed:</strong> <span id="drfRunners">-</span> runners / <span id="drfRaces">-</span> races</div>
+</div>
+
+<div class="warning-box" style="margin-top:8px;">
+  BRIS Single File is a comma-delimited data file. If you select a ZIP,
+  this build reads normal files plus multi-entry ZIPs and ZIP data descriptors.
+  If Safari reports an unsupported ZIP compression method, extract the
+  .DRF/.CSV file in Files first.
+</div>
+
+</div>
+
+
+<div class="upload-card">
+
+<h3>Equibase RSS / XML Feed</h3>
+
+<p>
+Upload the XML/RSS file or paste its XML contents. The picker accepts any file type so iPhone Files does not hide .RSS/.XML files. Scratch and rider matching is normalized to reduce name-format failures.
+</p>
+
+<label class="file-btn" for="rssInput">
+Select XML / RSS
+</label>
+
+<input
+type="file"
+id="rssInput"
+
+>
+
+<textarea
+id="rssPaste"
+rows="3"
+style="width:100%;margin-top:9px;font-family:var(--mono);font-size:11px;padding:7px;"
+placeholder="Or paste XML/RSS contents here..."
+></textarea>
+
+<div style="margin-top:8px;">
+<button class="small-btn" id="applyRssBtn">
+Apply Feed Updates
+</button>
+</div>
+
+<div class="file-meta-box" id="rssMetaBox">
+<div>
+<strong>Loaded:</strong>
+<span id="rssFileName">-</span>
+</div>
+<div>
+<strong>Feed Date:</strong>
+<span id="rssFileDate">-</span>
+</div>
+<div>
+<strong>Feed Items:</strong>
+<span id="rssItemCount">-</span>
+</div>
+</div>
+
+<div id="rssStatus" class="status"></div>
+
+</div>
+
+</div>
+
+</section>
+
+
+<!-- =========================================================
+     STEP 2
+========================================================= -->
+
+<section>
+
+<h2>
+<span class="step-num">2</span>
+Field Entries
+</h2>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+
+<tr>
+<th>Race</th>
+<th>Post</th>
+<th>Horse</th>
+<th>Trainer</th>
+<th>Jockey</th>
+<th>M/L</th>
+<th>Prime Power</th>
+<th>Last Speed</th>
+<th>Scr</th>
+<th></th>
+</tr>
+
+</thead>
+
+<tbody id="rowsBody"></tbody>
+
+</table>
+
+</div>
+
+<div class="table-actions">
+
+<button class="ghost-btn" id="addRowBtn">
++ Add Runner
+</button>
+
+<button class="ghost-btn" id="clearBtn">
+Clear All
+</button>
+
+<button class="primary-btn" id="computeBtn">
+Compute Race Card →
+</button>
+
+</div>
+
+</section>
+
+
+<!-- =========================================================
+     TABS
+========================================================= -->
+
+<div class="tabbar" id="tabbar">
+
+<button data-tab="card" class="on">
+Full Race Cards
+</button>
+
+<button data-tab="best">
+Decision Board
+</button>
+
+<button data-tab="analysis">
+Contenders / Questionable / Pretenders
+</button>
+
+</div>
+
+
+<section id="cardSection" style="display:none;"></section>
+
+<section id="bestSection" style="display:none;"></section>
+
+<section id="analysisSection" style="display:none;"></section>
+
+</main>
+
+</div>
+
+
+<!-- =========================================================
+     PP MODAL
+========================================================= -->
+
+<div id="ppOverlay">
+
+<div class="pp-card">
+
+<button
+class="pp-close"
+id="ppCloseBtn">
+✕
+</button>
+
+<div id="ppContent"></div>
+
+</div>
+
+</div>
+
+
+<div id="probOverlay" role="dialog" aria-modal="true" aria-labelledby="probTitle">
+  <div class="prob-card">
+    <button class="pp-close" id="probCloseBtn" aria-label="Close probability details">✕</button>
+    <div id="probContent"></div>
+  </div>
+</div>
+
+
+<script>
+
+"use strict";
+
+/* ============================================================
+   GLOBAL STATE
+============================================================ */
+
+let rows = [];
+let rowId = 1;
+let computedRaces = {};
+let trackConditions = {};
+let probabilityDetails = {};
+let raceCardView="live";
+let activeRaceNumber=null;
+
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+const $ = id => document.getElementById(id);
+
+function safe(v){
+    return String(v ?? "")
+        .replace(/&/g,"&amp;")
+        .replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;")
+        .replace(/"/g,"&quot;")
+        .replace(/'/g,"&#39;");
+}
+
+function number(v){
+    if(v === null || v === undefined) return 0;
+
+    const n = parseFloat(
+        String(v)
+        .replace(/[^0-9.+-]/g,"")
+    );
+
+    return Number.isFinite(n) ? n : 0;
+}
+
+
+/*
+Normalize horse/rider names.
+
+Example:
+
+"O'Connor"
+"OCONNOR"
+"O' CONNOR"
+
+will become comparable.
+*/
+
+function normalizeName(v){
+
+    return String(v || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g,"")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g,"");
+}
+
+
+/* ============================================================
+   ROW CREATION
+============================================================ */
+
+function newRow(partial = {}){
+
+    return Object.assign({
+
+        id: rowId++,
+
+        race:"1",
+        post:"1",
+        horse:"",
+
+        trainer:"",
+        trainerStarts:0,
+        trainerWins:0,
+        trainerPlaces:0,
+        trainerShows:0,
+
+        jockey:"",
+        origJockey:"",
+
+        jockeyStarts:0,
+        jockeyWins:0,
+        jockeyPlaces:0,
+        jockeyShows:0,
+
+        starts:0,
+        wins:0,
+        places:0,
+        shows:0,
+
+        odds:"",
+
+        primePower:0,
+        score:"",
+
+        lastSpeed:0,
+        bestSpeed:0,
+        bestSpeedLife:0,
+        bestSpeedTrack:0,
+        bestSpeedDistance:0,
+        bestSpeedFast:0,
+        bestSpeedTurf:0,
+        bestSpeedOff:0,
+
+        runStyle:"",
+        speedPoints:0,
+        currentTrack:"",
+        currentRaceDate:"",
+        currentSurface:"",
+        currentTrackCondition:"",
+        currentDistance:0,
+        raceType:"",
+        ageSex:"",
+        currentRaceClass:"",
+        raceConditions:"",
+        purse:0,
+        claimingPrice:0,
+        daysSinceLast:0,
+        tjStarts:0,
+        tjWins:0,
+        tjPlaces:0,
+        tjShows:0,
+        tjROI:0,
+
+        scratched:false,
+        jockeyChanged:false,
+
+        ppRaces:[],
+        ppWorks:[]
+
+    },partial);
+}
+
+
+/* ============================================================
+   RENDER INPUT TABLE
+============================================================ */
+
+function renderRows(){
+
+    const body = $("rowsBody");
+
+    body.innerHTML = "";
+
+    rows.forEach((r,index)=>{
+
+        const tr = document.createElement("tr");
+
+        if(r.scratched){
+            tr.classList.add("scratched-row");
+        }
+
+        tr.innerHTML = `
+
+        <td>
+            <input value="${safe(r.race)}" data-field="race">
+        </td>
+
+        <td>
+            <input value="${safe(r.post)}" data-field="post">
+        </td>
+
+        <td>
+            <input value="${safe(r.horse)}" data-field="horse">
+        </td>
+
+        <td>
+            <input
+                value="${safe(r.trainer)}"
+                data-field="trainer"
+                placeholder="Trainer">
+        </td>
+
+        <td>
+
+            <input
+                value="${safe(r.jockey)}"
+                data-field="jockey"
+                placeholder="Jockey">
+
+            ${
+                r.jockeyChanged
+                ?
+                '<span class="badge badge-red">CHANGED</span>'
+                :
+                ''
+            }
+
+        </td>
+
+        <td>
+            <input value="${safe(r.odds)}" data-field="odds">
+        </td>
+
+        <td>
+            <input
+                value="${safe(r.score || r.primePower)}"
+                data-field="score"
+                style="font-weight:700;">
+        </td>
+
+        <td>
+            <input
+                value="${safe(r.lastSpeed)}"
+                data-field="lastSpeed">
+        </td>
+
+        <td style="text-align:center;">
+            <input
+                type="checkbox"
+                ${r.scratched ? "checked" : ""}
+                data-field="scratched">
+        </td>
+
+        <td>
+
+            <button
+                class="del-btn"
+                data-delete="${r.id}">
+                ✕
+            </button>
+
+        </td>
+
+        `;
+
+        tr.querySelectorAll("[data-field]").forEach(input=>{
+
+            input.addEventListener("input",function(){
+
+                const field = this.dataset.field;
+
+                if(field === "scratched"){
+
+                    r.scratched = this.checked;
+
+                    tr.classList.toggle(
+                        "scratched-row",
+                        r.scratched
+                    );
+
+                }else{
+
+                    r[field] = this.value;
+
+                }
+
+            });
+
+        });
+
+        tr.querySelector("[data-delete]")
+          .addEventListener("click",()=>{
+
+              rows = rows.filter(x=>x.id !== r.id);
+
+              renderRows();
+
+          });
+
+        body.appendChild(tr);
+
+    });
+
+}
+
+
+/* ============================================================
+   ADD / CLEAR
+============================================================ */
+
+$("addRowBtn").addEventListener("click",()=>{
+
+    rows.push(newRow());
+
+    renderRows();
+
+});
+
+$("clearBtn").addEventListener("click",()=>{
+
+    rows = [];
+    computedRaces = {};
+
+    renderRows();
+
+});
+
+
+/* ============================================================
+   CSV PARSER
+============================================================ */
+
+function parseCSVLine(line,delimiter=","){
+
+    const result = [];
+
+    let current = "";
+    let quoted = false;
+
+    for(let i=0;i<line.length;i++){
+
+        const ch = line[i];
+
+        if(quoted){
+
+            if(ch === '"' && line[i+1] === '"'){
+
+                current += '"';
+                i++;
+
+            }else if(ch === '"'){
+
+                quoted = false;
+
+            }else{
+
+                current += ch;
+
+            }
+
+        }else{
+
+            if(ch === '"'){
+
+                quoted = true;
+
+            }else if(ch === delimiter){
+
+                result.push(current.trim());
+
+                current = "";
+
+            }else{
+
+                current += ch;
+
+            }
+
+        }
+
+    }
+
+    result.push(current.trim());
+
+    return result;
+
+}
+
+
+/*
+Detect likely delimiter.
+
+This is important because some exported files
+may not use comma consistently.
+*/
+
+function detectDelimiter(text){
+
+    const line = text
+        .split(/\r\n|\n|\r/)
+        .find(x=>x.trim());
+
+    if(!line) return ",";
+
+    const candidates = [",","\t","|",";"];
+
+    let best = ",";
+    let bestCount = 0;
+
+    candidates.forEach(delim=>{
+
+        const count = parseCSVLine(line,delim).length;
+
+        if(count > bestCount){
+
+            bestCount = count;
+            best = delim;
+
+        }
+
+    });
+
+    return best;
+}
+
+
+/* ============================================================
+   BRIS FIELD HELPERS
+============================================================ */
+
+function getField(fields,n){
+
+    if(fields[n-1] === undefined){
+        return "";
+    }
+
+    return String(fields[n-1])
+        .trim()
+        .replace(/^["']|["']$/g,"");
+
+}
+
+
+function getNumber(fields,n){
+
+    return number(getField(fields,n));
+
+}
+
+
+/* ============================================================
+   PRIME POWER
+============================================================ */
+
+function extractPrimePower(fields){
+
+    let value = getNumber(fields,251);
+
+    if(!value || value <= 0){
+        return "";
+    }
+
+    /*
+    Some Bris exports store Prime Power scaled.
+    */
+
+    if(value > 500){
+        value = value / 10;
+    }
+
+    if(value >= 50){
+        return value.toFixed(1);
+    }
+
+    return "";
+}
+
+
+/* ============================================================
+   DATE / DISTANCE
+============================================================ */
+
+function formatDate(value){
+
+    const s = String(value || "");
+
+    if(/^\d{8}$/.test(s)){
+
+        return (
+            s.substring(4,6)+"/"+
+            s.substring(6,8)+"/"+
+            s.substring(0,4)
+        );
+
+    }
+
+    return s;
+
+}
+
+
+function formatDistance(value){
+
+    let yards = number(value);
+
+    if(!yards){
+        return value || "N/A";
+    }
+
+    /*
+    Some exports represent distance in another scale.
+    */
+
+    if(yards > 2500){
+        yards = yards / 3;
+    }
+
+    const furlongs = yards / 220;
+
+    if(furlongs < 8){
+
+        const rounded =
+            Math.round(furlongs * 2) / 2;
+
+        return rounded + "f";
+
+    }
+
+    const miles = yards / 1760;
+
+    if(Math.abs(miles - 1) < .03)
+        return "1m";
+
+    if(Math.abs(miles - 1.0625) < .03)
+        return "1 1/16m";
+
+    if(Math.abs(miles - 1.125) < .03)
+        return "1 1/8m";
+
+    if(Math.abs(miles - 1.25) < .03)
+        return "1 1/4m";
+
+    return miles.toFixed(2)+"m";
+
+}
+
+
+/* ============================================================
+   FILE READER + BRIS SINGLE-FILE PARSER
+   BRIS Single File is a comma-delimited text database.
+   This reader also detects ZIP files because BRIS software
+   datafiles are commonly delivered compressed.
+============================================================ */
+
+function decodeBytes(bytes){
+    try{
+        const utf8 = new TextDecoder("utf-8",{fatal:true}).decode(bytes);
+        if(utf8.includes(",") || utf8.includes("\n") || utf8.includes("\r")){
+            return utf8;
+        }
+    }catch(e){}
+
+    try{
+        return new TextDecoder("windows-1252").decode(bytes);
+    }catch(e){
+        return new TextDecoder("utf-8").decode(bytes);
+    }
+}
+
+async function inflateRaw(bytes){
+    if(typeof DecompressionStream === "undefined"){
+        throw new Error("This browser cannot unzip the selected file. Extract the .DRF/.CSV file in Files and select that file.");
+    }
+    const ds = new DecompressionStream("deflate-raw");
+    const stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+async function extractZipSingleFile(bytes){
+    const dv = new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    if(bytes.length<30 || dv.getUint32(0,true) !== 0x04034b50){
+        throw new Error("ZIP file was not recognized.");
+    }
+
+    /* Read sizes and offsets from the central directory. This supports
+       multi-file ZIPs and archives that use a trailing data descriptor. */
+    let eocd=-1;
+    const min=Math.max(0,bytes.length-65557);
+    for(let i=bytes.length-22;i>=min;i--){
+        if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
+    }
+    if(eocd<0) throw new Error("ZIP directory was not found. Extract the file in Files and select the .DRF or .CSV inside.");
+
+    const entryCount=dv.getUint16(eocd+10,true);
+    const centralOffset=dv.getUint32(eocd+16,true);
+    const entries=[];
+    let cursor=centralOffset;
+
+    for(let i=0;i<entryCount && cursor+46<=bytes.length;i++){
+        if(dv.getUint32(cursor,true)!==0x02014b50) break;
+        const method=dv.getUint16(cursor+10,true);
+        const compressedSize=dv.getUint32(cursor+20,true);
+        const uncompressedSize=dv.getUint32(cursor+24,true);
+        const fileNameLen=dv.getUint16(cursor+28,true);
+        const extraLen=dv.getUint16(cursor+30,true);
+        const commentLen=dv.getUint16(cursor+32,true);
+        const localOffset=dv.getUint32(cursor+42,true);
+        const name=new TextDecoder("utf-8").decode(bytes.slice(cursor+46,cursor+46+fileNameLen));
+        if(name && !name.endsWith("/")) entries.push({name,method,compressedSize,uncompressedSize,localOffset});
+        cursor += 46+fileNameLen+extraLen+commentLen;
+    }
+
+    if(!entries.length) throw new Error("The ZIP contains no readable files.");
+    const preferred=
+        entries.find(e=>/\.drf$/i.test(e.name)) ||
+        entries.find(e=>/\.csv$/i.test(e.name)) ||
+        entries.find(e=>/\.txt$/i.test(e.name)) ||
+        entries[0];
+    if(preferred.localOffset+30>bytes.length || dv.getUint32(preferred.localOffset,true)!==0x04034b50){
+        throw new Error("The selected ZIP has a damaged file entry.");
+    }
+
+    const localNameLen=dv.getUint16(preferred.localOffset+26,true);
+    const localExtraLen=dv.getUint16(preferred.localOffset+28,true);
+    const dataStart=preferred.localOffset+30+localNameLen+localExtraLen;
+    const dataEnd=dataStart+preferred.compressedSize;
+    if(dataEnd>bytes.length) throw new Error("The selected ZIP is incomplete.");
+    const compressed=bytes.slice(dataStart,dataEnd);
+    const {name,method}=preferred;
+
+    if(method === 0){
+        return {name,text:decodeBytes(compressed)};
+    }
+    if(method === 8){
+        const inflated = await inflateRaw(compressed);
+        return {name,text:decodeBytes(inflated)};
+    }
+
+    throw new Error("ZIP compression method " + method + " is not supported by Safari. Extract the BRIS data file in Files and select the extracted .DRF file.");
+}
+
+function fileBytes(file){
+    if(file && typeof file.arrayBuffer==="function"){
+        return file.arrayBuffer().then(buffer=>new Uint8Array(buffer));
+    }
+    return new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(new Uint8Array(reader.result));
+        reader.onerror=()=>reject(reader.error || new Error("Safari could not read the selected file."));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+async function readTextFile(file){
+    const bytes = await fileBytes(file);
+
+    if(bytes.length < 4){
+        throw new Error("The selected file is empty or too small to be a BRIS data file.");
+    }
+
+    // ZIP signature: PK..
+    if(bytes[0]===0x50 && bytes[1]===0x4b && bytes[2]===0x03 && bytes[3]===0x04){
+        return await extractZipSingleFile(bytes);
+    }
+
+    const text = decodeBytes(bytes).replace(/^\uFEFF/,"");
+    if(!text.trim()){
+        throw new Error("The selected file contains no readable text.");
+    }
+
+    return {name:file.name || "Selected file",text};
+}
+
+function describeFile(file){
+    const name = file && file.name ? file.name : "selected file";
+    const size = file && Number.isFinite(file.size) ? file.size : 0;
+    return name + (size ? " · " + Math.round(size/1024) + " KB" : "");
+}
+
+/*
+Parse the entire CSV, not one physical line at a time.
+That prevents quoted commas and embedded line breaks from
+shifting every field after a long text field.
+*/
+function parseCSVRecords(text,delimiter=","){
+    const records = [];
+    let row = [];
+    let field = "";
+    let quoted = false;
+
+    for(let i=0;i<text.length;i++){
+        const ch = text[i];
+
+        if(quoted){
+            if(ch === '"' && text[i+1] === '"'){
+                field += '"';
+                i++;
+            }else if(ch === '"'){
+                quoted = false;
+            }else{
+                field += ch;
+            }
+            continue;
+        }
+
+        if(ch === '"'){
+            quoted = true;
+        }else if(ch === delimiter){
+            row.push(field.trim());
+            field = "";
+        }else if(ch === "\n" || ch === "\r"){
+            if(ch === "\r" && text[i+1] === "\n") i++;
+            row.push(field.trim());
+            field = "";
+            if(row.some(x=>String(x).trim()!=="")){
+                records.push(row);
+            }
+            row = [];
+        }else{
+            field += ch;
+        }
+    }
+
+    if(field.length || row.length){
+        row.push(field.trim());
+        if(row.some(x=>String(x).trim()!=="")){
+            records.push(row);
+        }
+    }
+
+    return records;
+}
+
+function looksLikeBrisRecord(fields){
+    if(!fields || fields.length < 251) return false;
+
+    const track = getField(fields,1);
+    const race = getField(fields,3);
+    const post = getField(fields,4);
+    const horse = getField(fields,45);
+    const pp = getNumber(fields,251);
+
+    if(!horse) return false;
+    if(!/^[A-Za-z0-9]{2,4}$/.test(track)) return false;
+    if(race && !/^\d+$/.test(race)) return false;
+    if(post && !/^\d+$/.test(post)) return false;
+
+    // Prime Power may be blank, but a genuine record should
+    // have a large field count and valid horse identity.
+    return fields.length >= 800 || pp > 0;
+}
+
+function loadDRF(text){
+
+    try{
+        const delimiter=detectDelimiter(text);
+        const records = parseCSVRecords(text,delimiter);
+
+        if(!records.length){
+            throw new Error("No CSV records were found.");
+        }
+
+        const newRows = [];
+        let candidateCount = 0;
+
+        records.forEach(fields=>{
+            if(fields.length < 251) return;
+            candidateCount++;
+
+            if(!looksLikeBrisRecord(fields)) return;
+
+            const horse = getField(fields,45);
+            const pp = extractPrimePower(fields);
+            const ppRaces = [];
+
+            for(let i=0;i<10;i++){
+                const date = getField(fields,256+i);
+                if(!date) continue;
+
+                ppRaces.push({
+                    date,
+                    track:getField(fields,276+i),
+                    raceNum:getField(fields,296+i),
+                    trackCondition:getField(fields,306+i),
+                    dist:getNumber(fields,316+i),
+                    surf:getField(fields,326+i),
+                    entrants:getNumber(fields,346+i),
+                    post:getField(fields,356+i),
+                    fin:getField(fields,616+i),
+                    beatenLengths:getNumber(fields,686+i),
+                    speed:getNumber(fields,846+i),
+                    pace2:getNumber(fields,766+i),
+                    pace4:getNumber(fields,776+i),
+                    pace6:getNumber(fields,786+i),
+                    pace8:getNumber(fields,796+i),
+                    latePace:getNumber(fields,816+i),
+                    raceClass:getField(fields,536+i),
+                    claimingPrice:getNumber(fields,546+i),
+                    purse:getNumber(fields,556+i),
+                    classRating:0,
+                    raceRating:0,
+                    comment:getField(fields,396+i),
+                    winner:getField(fields,406+i),
+                    placeHorse:getField(fields,416+i),
+                    showHorse:getField(fields,426+i)
+                });
+            }
+
+            const ppWorks = [];
+            for(let i=0;i<12;i++){
+                const date = getField(fields,102+i);
+                if(!date || date === "0") continue;
+
+                ppWorks.push({
+                    date:formatDate(date),
+                    time:getField(fields,114+i),
+                    track:getField(fields,126+i),
+                    distance:getNumber(fields,138+i),
+                    condition:getField(fields,150+i),
+                    description:getField(fields,162+i)
+                });
+            }
+
+            newRows.push(newRow({
+                race:getField(fields,3) || "1",
+                post:getField(fields,4) || "1",
+                horse,
+                odds:getField(fields,44),
+
+                trainer:getField(fields,28),
+                trainerStarts:getNumber(fields,29),
+                trainerWins:getNumber(fields,30),
+                trainerPlaces:getNumber(fields,31),
+                trainerShows:getNumber(fields,32),
+
+                jockey:getField(fields,33),
+                origJockey:getField(fields,33),
+                jockeyStarts:getNumber(fields,35),
+                jockeyWins:getNumber(fields,36),
+                jockeyPlaces:getNumber(fields,37),
+                jockeyShows:getNumber(fields,38),
+
+                // BRIS Single File: lifetime turf record is fields 75-79;
+                // overall lifetime record is fields 97-101. Keep both separate.
+                turfStarts:getNumber(fields,75),
+                turfWins:getNumber(fields,76),
+                turfPlaces:getNumber(fields,77),
+                turfShows:getNumber(fields,78),
+                turfEarnings:getNumber(fields,79),
+                wetStarts:getNumber(fields,80),
+                wetWins:getNumber(fields,81),
+                wetPlaces:getNumber(fields,82),
+                wetShows:getNumber(fields,83),
+                wetEarnings:getNumber(fields,84),
+
+                starts:getNumber(fields,97),
+                wins:getNumber(fields,98),
+                places:getNumber(fields,99),
+                shows:getNumber(fields,100),
+                careerEarnings:getNumber(fields,101),
+
+                currentTrack:getField(fields,1),
+                currentRaceDate:formatDate(getField(fields,2)),
+                currentSurface:getField(fields,7),
+                originalSurface:getField(fields,7),
+                surfaceChanged:false,
+                surfaceChangeText:"",
+                currentTrackCondition:"",
+                currentDistance:getNumber(fields,6),
+                raceType:getField(fields,9),
+                ageSex:getField(fields,10),
+                currentRaceClass:getField(fields,11),
+                raceConditions:[225,226,227,228,229,230]
+                    .map(n=>getField(fields,n))
+                    .filter(Boolean)
+                    .join(" "),
+                purse:getNumber(fields,12),
+                claimingPrice:getNumber(fields,13),
+
+                runStyle:getField(fields,210),
+                speedPoints:getNumber(fields,211),
+                daysSinceLast:getNumber(fields,224),
+
+                tjStarts:getNumber(fields,219),
+                tjWins:getNumber(fields,220),
+                tjPlaces:getNumber(fields,221),
+                tjShows:getNumber(fields,222),
+                tjROI:getNumber(fields,223),
+
+                lastSpeed:getNumber(fields,846),
+                bestSpeed:getNumber(fields,1328),
+                bestSpeedLife:getNumber(fields,1328),
+                bestSpeedFast:getNumber(fields,1178),
+                bestSpeedTurf:getNumber(fields,1179),
+                bestSpeedOff:getNumber(fields,1180),
+                bestSpeedDistance:getNumber(fields,1181),
+                bestSpeedTrack:getNumber(fields,1331),
+
+                primePower:pp,
+                score:pp,
+                ppRaces,
+                ppWorks
+            }));
+        });
+
+        if(!newRows.length){
+            throw new Error(
+                "No valid BRIS Single File records found. " +
+                "Records inspected: " + candidateCount +
+                ". This file may be a BRIS ZIP, a different BRIS format, or not a comma-delimited Single File."
+            );
+        }
+
+        rows = newRows;
+        renderRows();
+
+        const races = new Set(rows.map(r=>r.race)).size;
+        const maxFields = Math.max(...records.map(r=>r.length));
+
+        $("drfMetaBox").classList.add("show");
+        $("drfRecords").textContent = records.length;
+        $("drfFields").textContent = maxFields;
+        $("drfRunners").textContent = rows.length;
+        $("drfRaces").textContent = races;
+
+        $("drfStatus").className = "status ok";
+        $("drfStatus").textContent =
+            "✓ Loaded " + rows.length + " runners / " + races +
+            " races. BRIS comma-delimited format confirmed. " +
+            "Largest record: " + maxFields + " fields.";
+    }catch(error){
+        $("drfStatus").className = "status err";
+        $("drfStatus").textContent = "BRIS FILE ERROR: " + error.message;
+    }
+}
+
+$("drfInput").addEventListener("change",async event=>{
+    const file = event.target.files && event.target.files[0];
+    if(!file) return;
+
+    $("drfStatus").className = "status";
+    $("drfStatus").textContent = "Opening " + describeFile(file) + "…";
+    $("drfMetaBox").classList.add("show");
+    $("drfFileName").textContent = file.name || "Selected file";
+    $("drfBytes").textContent = Number(file.size || 0).toLocaleString();
+
+    try{
+        const result = await readTextFile(file);
+        if(result.name && result.name !== file.name){
+            $("drfStatus").textContent =
+                "Unzipped " + result.name + " — parsing…";
+        }
+        loadDRF(result.text);
+    }catch(err){
+        $("drfStatus").className = "status err";
+        $("drfStatus").textContent = "BRIS FILE ERROR: " + err.message;
+    }
+});
+
+/* Selecting the same file again must still trigger change on iPhone. */
+$("drfInput").addEventListener("click",event=>{
+    event.currentTarget.value="";
+});
+
+$("loadSampleBtn").addEventListener("click",async()=>{
+    $("drfStatus").className = "status";
+    $("drfStatus").textContent = "Loading supplied TDN0901.CSV test card…";
+    try{
+        const response = await fetch("/TDN0901.CSV");
+        if(!response.ok) throw new Error("Sample HTTP " + response.status);
+        const text = await response.text();
+        $("drfMetaBox").classList.add("show");
+        $("drfFileName").textContent = "TDN0901.CSV";
+        $("drfBytes").textContent = new Blob([text]).size.toLocaleString();
+        loadDRF(text);
+    }catch(err){
+        $("drfStatus").className = "status err";
+        $("drfStatus").textContent = "SAMPLE ERROR: " + err.message;
+    }
+});
+
+
+/* ============================================================
+   XML HELPERS
+============================================================ */
+
+function parseXML(raw){
+
+    const parser =
+        new DOMParser();
+
+    const doc =
+        parser.parseFromString(
+            raw,
+            "application/xml"
+        );
+
+    if(doc.querySelector("parsererror")){
+        return null;
+    }
+
+    return doc;
+
+}
+
+
+function extractFeedDate(doc){
+
+    const selectors = [
+        "pubDate",
+        "lastBuildDate",
+        "date",
+        "issueDate"
+    ];
+
+    for(const selector of selectors){
+
+        const element =
+            doc.querySelector(selector);
+
+        if(
+            element &&
+            element.textContent.trim()
+        ){
+
+            return element.textContent.trim();
+
+        }
+
+    }
+
+    return "Not specified";
+
+}
+
+
+/* ============================================================
+   SCRATCH / JOCKEY MATCHING
+============================================================ */
+
+
+function jockeyNameParts(s){
+    const suffix=new Set(["JR","SR","II","III","IV"]);
+    const clean=String(s||"").toUpperCase()
+        .replace(/[^A-Z ]/g," ")
+        .replace(/\s+/g," ")
+        .trim();
+    if(!clean) return null;
+    const toks=clean.split(" ").filter(t=>t && !suffix.has(t));
+    const words=toks.filter(t=>t.length>1);
+    const initials=toks.filter(t=>t.length===1).concat(words.map(w=>w[0]));
+    return {words,initials};
+}
+
+function sameJockeyName(a,b){
+    const A=jockeyNameParts(a), B=jockeyNameParts(b);
+    if(!A || !B) return false;
+    const shared=A.words.filter(w=>B.words.includes(w));
+    if(A.words.length>=2 && B.words.length>=2) return shared.length>=2;
+    if(!shared.length) return false;
+    if(A.words.length===1 || B.words.length===1){
+        const ai=A.initials, bi=B.initials;
+        if(!ai.length || !bi.length) return true;
+        return ai.some(i=>bi.includes(i));
+    }
+    return true;
+}
+
+function decodeFeedEntities(t){
+    return String(t||"")
+      .replace(/&lt;/g,"<").replace(/&gt;/g,">")
+      .replace(/&quot;/g,'"').replace(/&#0?39;/g,"'")
+      .replace(/&apos;/g,"'").replace(/&nbsp;/g," ")
+      .replace(/&amp;/g,"&");
+}
+
+function normalizeYmd(value){
+    const s=String(value||"").trim();
+    let m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if(m) return m[1]+m[2]+m[3];
+    m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return m[1]+m[2]+m[3];
+    m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return m[3]+String(m[1]).padStart(2,"0")+String(m[2]).padStart(2,"0");
+    const d=new Date(s);
+    if(!isNaN(d)){
+        return String(d.getFullYear())+
+            String(d.getMonth()+1).padStart(2,"0")+
+            String(d.getDate()).padStart(2,"0");
+    }
+    return "";
+}
+
+function parseEquibaseChanges(raw){
+    const out={track:"",feedDate:"",feedYmd:"",scratches:[],riders:[],conditions:[],surfaces:[]};
+
+    const title=raw.match(/<title>\s*Equibase\s+([A-Z0-9]{2,5})\s+Changes/i);
+    if(title) out.track=title[1].toUpperCase();
+
+    const pub=raw.match(/<pubDate>([^<]+)<\/pubDate>/i);
+    if(pub){
+        out.feedDate=pub[1].trim();
+        out.feedYmd=normalizeYmd(out.feedDate);
+    }
+
+    const iso=raw.match(/<dc:date>\s*(\d{4})-(\d{2})-(\d{2})/i);
+    if(iso) out.feedYmd=iso[1]+iso[2]+iso[3];
+
+    const descRe=/<description>([\s\S]*?)<\/description>/gi;
+    let dm, lines=[];
+    while((dm=descRe.exec(raw))!==null){
+        decodeFeedEntities(dm[1]).split(/<br\s*\/?>/i).forEach(line=>{
+            const t=line.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+            if(t) lines.push(t);
+        });
+    }
+
+    // Some feeds expose useful text directly in item nodes rather than description.
+    if(!lines.length){
+        const doc=parseXML(raw);
+        if(doc){
+            [...doc.querySelectorAll("item,entry,change,scratch,jockey_change")].forEach(item=>{
+                const t=(item.textContent||"").replace(/\s+/g," ").trim();
+                if(t) lines.push(t);
+            });
+        }
+    }
+
+    const scratchSeen=new Set(), riderSeen=new Set();
+
+    lines.forEach(line=>{
+        const rm=line.match(/Race\s*0?(\d{1,2})\s*:\s*(.*)$/i);
+        if(!rm) return;
+        const race=String(parseInt(rm[1],10));
+        const body=rm[2].trim();
+        let m;
+
+        if((m=body.match(/^#\s*(\d{1,2})\s+(.+?)\s+Scratched\b/i))){
+            const post=String(parseInt(m[1],10));
+            const key=race+"-"+post;
+            if(!scratchSeen.has(key)){
+                scratchSeen.add(key);
+                out.scratches.push({race,post,horse:m[2].trim()});
+            }
+            return;
+        }
+
+        if((m=body.match(/^#\s*(\d{1,2})\s+(.+?)\s+Jockey\s*-\s*(.+?)\s+changed to\s+(.+?)\s*$/i))){
+            const post=String(parseInt(m[1],10));
+            const key=race+"-"+post+"-"+m[4].trim().toUpperCase();
+            if(!riderSeen.has(key)){
+                riderSeen.add(key);
+                out.riders.push({race,post,horse:m[2].trim(),from:m[3].trim(),to:m[4].trim()});
+            }
+            return;
+        }
+
+        // Surface changes are common when weather takes a race off the turf.
+        // Keep this separate from track condition: "Soft -> Dirt" is a surface
+        // change first, then the main-track condition is applied independently.
+        const surfaceText=body.replace(/\s+/g," ").trim();
+        let surface="";
+        if(/\b(off|taken off|moved off)\s+(the\s+)?turf\b/i.test(surfaceText) ||
+           /\b(moved|switched|changed)\s+(to\s+)?(the\s+)?main\s+track\b/i.test(surfaceText)){
+            surface="D";
+        }else{
+            const sm=surfaceText.match(/\b(?:race\s+)?surface\s*(?:-|:|changed\s+to|moved\s+to|switched\s+to)\s*(turf|grass|dirt|main\s+track|synthetic|all\s+weather)\b/i) ||
+                     surfaceText.match(/\b(?:moved|switched|changed)\s+to\s+(turf|grass|dirt|main\s+track|synthetic|all\s+weather)\b/i);
+            if(sm){
+                const s=sm[1].toLowerCase();
+                if(s==="turf" || s==="grass") surface="T";
+                else if(s==="synthetic" || s==="all weather") surface="A";
+                else surface="D";
+            }
+        }
+        if(surface){
+            out.surfaces.push({race,surface,text:surfaceText});
+        }
+
+        if(/Track Condition/i.test(body)){
+            out.conditions.push({race,text:body});
+        }
+    });
+
+    return out;
+}
+
+function applyRSS(raw,fileName="Pasted Content"){
+    if(!raw || !raw.trim()){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="XML/RSS ERROR: Input is empty.";
+        return;
+    }
+
+    const doc=parseXML(raw);
+    if(!doc){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="XML/RSS ERROR: Invalid XML/RSS. Paste or select the actual Equibase feed source.";
+        return;
+    }
+
+    if(!rows.length){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="Load the race data first, then apply the Equibase changes feed.";
+        return;
+    }
+
+    const feed=parseEquibaseChanges(raw);
+
+    // Strong guard against applying the right track's old feed, or another track's feed.
+    const cardTracks=[...new Set(rows.map(r=>String(r.currentTrack||"").toUpperCase().trim()).filter(Boolean))];
+    const cardDates=[...new Set(rows.map(r=>normalizeYmd(r.currentRaceDate)).filter(Boolean))];
+    const mismatches=[];
+
+    if(feed.track && cardTracks.length && !cardTracks.includes(feed.track)){
+        mismatches.push(`feed track ${feed.track} does not match loaded card ${cardTracks.join(", ")}`);
+    }
+    if(feed.feedYmd && cardDates.length && !cardDates.includes(feed.feedYmd)){
+        mismatches.push(`feed date ${feed.feedYmd} does not match loaded card ${cardDates.join(", ")}`);
+    }
+
+    if(mismatches.length){
+        $("rssStatus").className="status err";
+        $("rssStatus").textContent="FEED NOT APPLIED: "+mismatches.join("; ")+".";
+        return;
+    }
+
+    let scratchCount=0, jockeyCount=0;
+    const unmatchedScratches=[], unmatchedRiders=[];
+
+    feed.scratches.forEach(sc=>{
+        const row=rows.find(r=>
+            String(number(r.race))===String(number(sc.race)) &&
+            String(number(r.post))===String(number(sc.post))
+        );
+        if(!row){
+            unmatchedScratches.push(sc);
+            return;
+        }
+        if(!row.scratched){
+            row.scratched=true;
+            scratchCount++;
+        }
+    });
+
+    feed.riders.forEach(rc=>{
+        const row=rows.find(r=>
+            String(number(r.race))===String(number(rc.race)) &&
+            String(number(r.post))===String(number(rc.post))
+        );
+        if(!row){
+            unmatchedRiders.push(rc);
+            return;
+        }
+
+        if(rc.to && !sameJockeyName(rc.to,row.jockey)){
+            if(!row.origJockey) row.origJockey=row.jockey || rc.from || "";
+            row.jockey=rc.to;
+            row.jockeyChanged=true;
+            jockeyCount++;
+        }
+    });
+
+    // Apply race-surface changes before condition changes. This is critical:
+    // surface fit and surface-specific Best Speed must be based on where the race
+    // will actually be run, not where the overnight DRF expected it to be run.
+    let surfaceCount=0;
+    const surfaceByRace={};
+    feed.surfaces.forEach(sc=>{
+        surfaceByRace[String(number(sc.race))]=sc;
+    });
+    rows.forEach(r=>{
+        const sc=surfaceByRace[String(number(r.race))];
+        if(!sc) return;
+        if(!r.originalSurface) r.originalSurface=r.currentSurface || "";
+        const oldGroup=surfaceGroup(r.currentSurface);
+        const newGroup=surfaceGroup(sc.surface);
+        r.currentSurface=sc.surface;
+        r.surfaceChangeText=sc.text || "";
+        r.surfaceChanged=!!(oldGroup && newGroup && oldGroup!==newGroup);
+        if(r.surfaceChanged) surfaceCount++;
+    });
+
+    // Keep late condition notes by race and use them in condition-fit recomputation.
+    trackConditions={};
+    feed.conditions.forEach(c=>{
+        const changed=String(c.text||"").match(/changed\s+to\s+([A-Za-z]+)/i);
+        const direct=String(c.text||"").match(/Track Condition\s*-\s*([A-Za-z]+)/i);
+        const condition=changed ? changed[1] : direct ? direct[1] : "";
+        if(condition) trackConditions[String(number(c.race))]=condition;
+    });
+
+    rows.forEach(r=>{
+        r.currentTrackCondition=
+            trackConditions[String(number(r.race))] ||
+            r.currentTrackCondition || "";
+    });
+
+    $("rssFileName").textContent=fileName;
+    $("rssFileDate").textContent=feed.feedDate || "Not specified";
+    $("rssItemCount").textContent=
+        feed.scratches.length + feed.riders.length + feed.conditions.length + feed.surfaces.length;
+    $("rssMetaBox").classList.add("show");
+
+    renderRows();
+
+    let msg=`Applied ${scratchCount} scratch(es), ${jockeyCount} jockey change(s), and ${surfaceCount} runner surface update(s)`;
+    if(unmatchedScratches.length) msg+=`; ${unmatchedScratches.length} scratch(es) had no matching race/post`;
+    if(unmatchedRiders.length) msg+=`; ${unmatchedRiders.length} rider change(s) had no matching race/post`;
+    if(!feed.scratches.length && !feed.riders.length && !feed.surfaces.length && !feed.conditions.length){
+        msg+=". No scratches, rider changes, surface changes, or track-condition changes were found in this feed yet";
+    } else {
+        msg+=".";
+    }
+
+    $("rssStatus").className="status ok";
+    $("rssStatus").textContent=msg;
+
+    if(Object.keys(computedRaces).length){
+        computeRaceCard();
+    }
+}
+
+
+/* ============================================================
+   XML FILE INPUT
+============================================================ */
+
+$("rssInput").addEventListener("change",async event=>{
+    const file = event.target.files && event.target.files[0];
+    if(!file) return;
+
+    $("rssStatus").className = "status";
+    $("rssStatus").textContent = "Reading " + describeFile(file) + "…";
+
+    try{
+        const result = await readTextFile(file);
+        applyRSS(result.text, result.name || file.name || "Selected XML/RSS");
+    }catch(err){
+        $("rssStatus").className = "status err";
+        $("rssStatus").textContent = "FILE ERROR: " + err.message;
+    }
+});
+
+
+$("applyRssBtn").addEventListener("click",()=>{
+
+    applyRSS(
+        $("rssPaste").value,
+        "Pasted XML"
+    );
+
+});
+
+
+/* ============================================================
+   BETTING / MODEL HELPERS
+============================================================ */
+
+
+/*
+Fractional M/L -> decimal odds.
+*/
+
+function oddsDecimal(odds){
+    const raw = String(odds || "").trim().toLowerCase();
+    if(!raw) return null;
+
+    // Fractional: 5/2, 5-2, 5 to 2
+    let m = raw.match(/^(\d+(?:\.\d+)?)\s*(?:\/|-|to)\s*(\d+(?:\.\d+)?)$/);
+    if(m && number(m[2]) > 0) return number(m[1]) / number(m[2]);
+
+    // BRIS numeric M/L is net fractional odds: 4.00 means 4-1.
+    m = raw.match(/^(\d+(?:\.\d+)?)$/);
+    if(m){
+        const v = number(m[1]);
+        if(v > 0) return v;
+    }
+
+    // American odds: +250 / -120
+    m = raw.match(/^([+-]\d+(?:\.\d+)?)$/);
+    if(m){
+        const a = number(m[1]);
+        if(a > 0) return a/100;
+        if(a < 0) return 100/Math.abs(a);
+    }
+
+    return null;
+}
+
+
+/*
+Recent finishing form.
+
+Higher score = better recent finishing.
+*/
+
+function recentFormScore(horse){
+
+    const lines =
+        (horse.ppRaces || [])
+        .slice(0,5);
+
+    const finishes =
+        lines
+        .map(p=>number(p.fin,99))
+        .filter(x=>x < 99);
+
+    if(!finishes.length){
+        return 0.5;
+    }
+
+    /*
+    Weighted toward most recent race.
+    */
+
+    let weighted = 0;
+    let weights = 0;
+
+    finishes.forEach((finish,index)=>{
+
+        const weight =
+            Math.max(
+                1,
+                5-index
+            );
+
+        weighted +=
+            Math.max(
+                0,
+                12-finish
+            ) *
+            weight;
+
+        weights += weight;
+
+    });
+
+    /*
+    Convert approximately to 0-1.
+    */
+
+    return Math.min(
+        1,
+        weighted /
+        (weights*10)
+    );
+
+}
+
+
+/*
+Career win percentage.
+*/
+
+function careerWinRate(horse){
+
+    if(number(horse.starts) <= 0){
+        return 0;
+    }
+
+    return Math.min(
+        1,
+        number(horse.wins) /
+        number(horse.starts)
+    );
+
+}
+
+
+/*
+Trainer win percentage.
+*/
+
+function trainerWinRate(horse){
+
+    if(number(horse.trainerStarts) <= 0){
+        return 0;
+    }
+
+    return Math.min(
+        1,
+        number(horse.trainerWins) /
+        number(horse.trainerStarts)
+    );
+
+}
+
+
+/*
+Jockey win percentage.
+*/
+
+function jockeyWinRate(horse){
+
+    if(number(horse.jockeyStarts) <= 0){
+        return 0;
+    }
+
+    return Math.min(
+        1,
+        number(horse.jockeyWins) /
+        number(horse.jockeyStarts)
+    );
+
+}
+
+
+/*
+Speed relative to today's field.
+*/
+
+function relativeSpeed(horse,field){
+
+    const speeds =
+        field
+        .map(x=>number(x.lastSpeed))
+        .filter(x=>x > 0);
+
+    if(
+        !speeds.length ||
+        !number(horse.lastSpeed)
+    ){
+
+        return 0.5;
+
+    }
+
+    const max =
+        Math.max(...speeds);
+
+    const min =
+        Math.min(...speeds);
+
+    if(max === min){
+        return 0.5;
+    }
+
+    return (
+        number(horse.lastSpeed)-min
+    ) /
+    (max-min);
+
+}
+
+
+/*
+Best speed relative to field.
+*/
+
+function relativeBestSpeed(horse,field){
+
+    const speeds =
+        field
+        .map(x=>number(x.bestSpeed))
+        .filter(x=>x > 0);
+
+    if(
+        !speeds.length ||
+        !number(horse.bestSpeed)
+    ){
+
+        return 0.5;
+
+    }
+
+    const max =
+        Math.max(...speeds);
+
+    const min =
+        Math.min(...speeds);
+
+    if(max === min){
+        return 0.5;
+    }
+
+    return (
+        number(horse.bestSpeed)-min
+    ) /
+    (max-min);
+
+}
+
+
+/*
+Prime Power relative ranking.
+
+This is deliberately normalized within today's field
+rather than treating a raw Prime Power number as the
+entire prediction.
+*/
+
+function relativePrimePower(horse,field){
+
+    const values =
+        field
+        .map(x=>number(x.score || x.primePower))
+        .filter(x=>x > 0);
+
+    const value =
+        number(horse.score || horse.primePower);
+
+    if(!values.length || !value){
+        return 0.5;
+    }
+
+    const max =
+        Math.max(...values);
+
+    const min =
+        Math.min(...values);
+
+    if(max === min){
+        return 0.5;
+    }
+
+    return (value-min)/(max-min);
+
+}
+
+
+/*
+Morning-line value.
+
+This is NOT allowed to overwhelm ability.
+It simply rewards a horse whose model probability
+is materially higher than the market's implied probability.
+*/
+
+function valueSignal(horse,modelProbability){
+
+    const odds =
+        oddsDecimal(horse.odds);
+
+    if(odds === null){
+        return 0;
+    }
+
+    const implied =
+        1/(odds+1);
+
+    return (
+        modelProbability-implied
+    );
+
+}
+
+
+/* ============================================================
+   IMPROVED HORSE MODEL
+   Uses only data actually present in the BRIS Single File.
+   The model is field-relative, recency-aware and avoids using
+   earnings as a speed figure.
+============================================================ */
+
+function percentileRank(value,values){
+    const valid = values.filter(v=>Number.isFinite(v) && v>0).sort((a,b)=>a-b);
+    if(!valid.length || !Number.isFinite(value) || value<=0) return .5;
+    let below=0;
+    valid.forEach(v=>{ if(v<value) below++; });
+    return below / Math.max(1,valid.length-1);
+}
+
+function relativeFeature(horse,field,selector){
+    return percentileRank(
+        selector(horse),
+        field.map(selector)
+    );
+}
+
+function avg(values){
+    const v=values.filter(x=>Number.isFinite(x) && x>0);
+    return v.length ? v.reduce((a,b)=>a+b,0)/v.length : 0;
+}
+
+function recentSpeedScore(horse){
+    const vals=(horse.ppRaces||[])
+        .slice(0,5)
+        .map(x=>number(x.speed))
+        .filter(x=>x>0);
+    return vals.length ? avg(vals) : number(horse.lastSpeed);
+}
+
+function recentPaceScore(horse){
+    const vals=(horse.ppRaces||[])
+        .slice(0,4)
+        .map(x=>avg([
+            number(x.pace2),
+            number(x.pace4),
+            number(x.pace6),
+            number(x.pace8),
+            number(x.latePace)
+        ]))
+        .filter(x=>x>0);
+    return avg(vals);
+}
+
+function recentClassScore(horse){
+    const vals=(horse.ppRaces||[])
+        .slice(0,5)
+        .map(x=>{
+            const purse=number(x.purse);
+            const claiming=number(x.claimingPrice);
+            if(!purse && !claiming) return 0;
+            return Math.log10(1+purse)*10 + Math.log10(1+claiming)*4;
+        })
+        .filter(x=>x>0);
+    return avg(vals);
+}
+
+function surfaceGroup(value){
+    const s=String(value||"").trim().toUpperCase();
+    if(!s) return "";
+    if(s==="T" || s.includes("TURF") || s.includes("GRASS")) return "T";
+    if(s==="A" || s.includes("SYNTH") || s.includes("ALL WEATHER") || s.includes("TAPETA") || s.includes("POLY")) return "A";
+    if(s==="D" || s==="M" || s.includes("DIRT") || s.includes("MAIN")) return "D";
+    return s;
+}
+
+function surfaceLabel(value){
+    const g=surfaceGroup(value);
+    if(g==="T") return "Turf";
+    if(g==="D") return "Dirt";
+    if(g==="A") return "Synthetic";
+    return String(value||"Unknown");
+}
+
+function sameSurface(a,b){
+    const ga=surfaceGroup(a), gb=surfaceGroup(b);
+    return !!ga && ga===gb;
+}
+
+function surfaceBestSpeed(horse){
+    const g=surfaceGroup(horse.currentSurface);
+    const cond=conditionGroup(horse.currentTrackCondition);
+    if(g==="T") return number(horse.bestSpeedTurf) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+    if(g==="D" && cond==="OFF") return number(horse.bestSpeedOff) || number(horse.bestSpeedFast) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+    if(g==="D") return number(horse.bestSpeedFast) || number(horse.bestSpeedLife) || number(horse.bestSpeed);
+    return number(horse.bestSpeedLife) || number(horse.bestSpeed);
+}
+
+function surfaceSpeedScore(horse){
+    const vals=(horse.ppRaces||[])
+        .filter(r=>sameSurface(horse.currentSurface,r.surf))
+        .slice(0,5)
+        .map(r=>number(r.speed))
+        .filter(v=>v>0);
+    return avg(vals);
+}
+
+function conditionGroup(value){
+    const s=String(value||"").trim().toUpperCase();
+    if(["FT","FST","FAST"].includes(s)) return "FAST";
+    if(["MY","MUDDY","SY","SL","SLOPPY"].includes(s)) return "OFF";
+    if(["YL","YLD","YIELDING","SF","SOFT"].includes(s)) return "SOFT";
+    if(["FM","FIRM"].includes(s)) return "FIRM";
+    if(["GD","GOOD"].includes(s)) return "GOOD";
+    return s;
+}
+
+function conditionSpeedScore(horse){
+    const target=conditionGroup(horse.currentTrackCondition);
+    if(!target) return 0;
+    const vals=(horse.ppRaces||[])
+        .filter(r=>conditionGroup(r.trackCondition)===target)
+        .slice(0,5)
+        .map(r=>number(r.speed))
+        .filter(v=>v>0);
+    return avg(vals);
+}
+
+function dataQuality(horse){
+    const core=[
+        number(horse.primePower)>0,
+        number(horse.lastSpeed)>0,
+        recentSpeedScore(horse)>0,
+        (number(horse.bestSpeedTrack)||number(horse.bestSpeedDistance)||number(horse.bestSpeedLife))>0,
+        recentPaceScore(horse)>0,
+        recentClassScore(horse)>0
+    ];
+    const present=core.filter(Boolean).length;
+    const ratio=present/core.length;
+    const label=ratio>=.84 ? "COMPLETE" : ratio>=.5 ? "PARTIAL" : "POOR";
+    return {present,total:core.length,ratio,label};
+}
+
+function raceDecision(top,field){
+    const horse=top.horse;
+    const reasons=[];
+    const warnings=[];
+    const firstTimers=field.filter(h=>number(h.starts)===0).length;
+    const firstTimerRate=field.length ? firstTimers/field.length : 0;
+
+    // Only structural/data problems can force a race-level PASS here.
+    if(number(horse.currentDistance)>3000) reasons.push("specialty or jump-distance race");
+    if(top.components.quality.label==="POOR") reasons.push("poor core-data coverage");
+    if(firstTimerRate>=.25) reasons.push("many first-time starters");
+
+    // A missing exact-condition match is useful context, but it must not contradict
+    // a strong performance/earnings read by independently forcing PASS.
+    if(horse.currentTrackCondition && conditionSpeedScore(horse)===0){
+        warnings.push("no matching speed figure for today's exact track condition");
+    }
+
+    return {pass:reasons.length>0,reasons,warnings,firstTimers,firstTimerRate};
+}
+
+function classDropStatus(horse){
+    const current=number(horse.claimingPrice);
+    const last=(horse.ppRaces||[])[0];
+    const previous=last ? number(last.claimingPrice) : 0;
+    const days=number(horse.daysSinceLast);
+    const dropping=current>0 && previous>0 && current < previous*.90;
+    const recent=days>0 && days<=60;
+    return {dropping,recent,days,current,previous,qualified:!dropping || recent};
+}
+
+function formScore(horse){
+    const races=(horse.ppRaces||[]).slice(0,5);
+    if(!races.length) return .5;
+
+    let total=0,weightTotal=0;
+    races.forEach((r,i)=>{
+        const fin=number(r.fin);
+        const speed=number(r.speed);
+        const w=Math.max(1,5-i);
+
+        let finish=0.5;
+        if(fin>0 && fin<90){
+            finish=Math.max(0,Math.min(1,(13-fin)/12));
+        }
+
+        const speedPart=speed>0 ? Math.min(1,Math.max(0,(speed-50)/50)) : .5;
+        total += (finish*.60 + speedPart*.40)*w;
+        weightTotal += w;
+    });
+
+    return weightTotal ? total/weightTotal : .5;
+}
+
+
+function parseDisplayDate(value){
+    const s=String(value || "").trim();
+    let m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if(m) return new Date(Number(m[3]),Number(m[1])-1,Number(m[2]));
+    m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if(m) return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
+    const d=new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function eligibleWorkouts(horse){
+    const raceDate=parseDisplayDate(horse.currentRaceDate);
+    const works=(horse.ppWorks || []).slice();
+
+    const dated=works.map(w=>({w,date:parseDisplayDate(w.date)}))
+        .filter(x=>x.date);
+
+    let qualifying;
+    if(raceDate){
+        qualifying=dated.filter(x=>{
+            const days=(raceDate-x.date)/(1000*60*60*24);
+            return days>=0 && days<=30;
+        });
+    }else{
+        qualifying=dated;
+    }
+
+    qualifying.sort((a,b)=>b.date-a.date);
+    return qualifying.slice(0,4).map(x=>x.w);
+}
+
+function workoutScore(horse){
+    const works=eligibleWorkouts(horse);
+    if(!works.length) return .5;
+
+    let score=.5;
+    const useful=works.filter(w=>number(w.time)>0);
+
+    if(useful.length){
+        const avgTime=avg(useful.map(w=>Math.abs(number(w.time))));
+        if(avgTime>0){
+            // Workout time is only a modest signal because distance
+            // and track conditions differ.
+            score=.55;
+            const bullet=useful.filter(w=>number(w.time)<0).length;
+            score += Math.min(.20,bullet*.04);
+        }
+    }
+    return Math.min(1,score);
+}
+
+function experienceRate(horse){
+    const starts=number(horse.starts);
+    if(starts<=0) return .10;
+    return Math.min(.40,number(horse.wins)/starts);
+}
+
+function trainerStrength(horse){
+    const starts=number(horse.trainerStarts);
+    if(starts<=0) return .10;
+
+    const win=number(horse.trainerWins)/starts;
+    const itm=(number(horse.trainerWins)+number(horse.trainerPlaces)+number(horse.trainerShows))/starts;
+
+    // Blend win and ITM; shrink very small samples toward neutral.
+    const shrink=Math.min(1,starts/50);
+    return .10 + shrink*((win*.65 + itm*.35)-.10);
+}
+
+function jockeyStrength(horse){
+    const starts=number(horse.jockeyStarts);
+    if(starts<=0) return .10;
+
+    const win=number(horse.jockeyWins)/starts;
+    const itm=(number(horse.jockeyWins)+number(horse.jockeyPlaces)+number(horse.jockeyShows))/starts;
+    const shrink=Math.min(1,starts/50);
+
+    return .10 + shrink*((win*.65 + itm*.35)-.10);
+}
+
+function tjComboStrength(horse){
+    const starts=number(horse.tjStarts);
+    if(starts<=0) return .10;
+
+    const win=number(horse.tjWins)/starts;
+    const itm=(number(horse.tjWins)+number(horse.tjPlaces)+number(horse.tjShows))/starts;
+    return .10 + Math.min(1,starts/50)*((win*.65+itm*.35)-.10);
+}
+
+function paceFit(horse,field){
+    const value=recentPaceScore(horse);
+    return relativeFeature(horse,field,relative=>recentPaceScore(relative));
+}
+
+function classFit(horse,field){
+    return relativeFeature(horse,field,relative=>recentClassScore(relative));
+}
+
+function speedFormFit(horse,field){
+    const v=recentSpeedScore(horse);
+    return percentileRank(v,field.map(recentSpeedScore));
+}
+
+function bestSpeedFit(horse,field){
+    // Use the best figure for today's ACTUAL surface. If weather moves the race,
+    // currentSurface is changed by applyRSS() and this recomputes automatically.
+    const v=surfaceBestSpeed(horse) ||
+            number(horse.bestSpeedDistance) ||
+            number(horse.bestSpeedTrack) ||
+            number(horse.bestSpeedLife);
+    return percentileRank(v,field.map(x=>
+        surfaceBestSpeed(x) ||
+        number(x.bestSpeedDistance) ||
+        number(x.bestSpeedTrack) ||
+        number(x.bestSpeedLife)
+    ));
+}
+
+
+function postBucket(post,entrants){
+    const p=number(post);
+    const n=number(entrants);
+    if(p<=0 || n<=1) return "MIDDLE";
+    const relative=(p-1)/(n-1);
+    if(relative < 1/3) return "INSIDE";
+    if(relative < 2/3) return "MIDDLE";
+    return "OUTSIDE";
+}
+
+function postFinishPerformance(fin,entrants){
+    const f=number(fin);
+    const n=number(entrants);
+    if(f<=0 || f>=90 || n<=1) return null;
+    return Math.max(0,Math.min(1,1-((f-1)/(n-1))));
+}
+
+function postPositionEvidence(horse,field){
+    const targetTrack=String(horse.currentTrack || "").trim().toUpperCase();
+    const targetSurface=horse.currentSurface;
+    const targetDistance=Math.abs(number(horse.currentDistance));
+
+    if(!targetSurface || targetDistance<=0){
+        return {score:.5,sample:0,bucket:"MIDDLE",source:"none",delta:0,bucketSample:0};
+    }
+
+    const todaysSpan=Math.max(
+        field.length,
+        ...field.map(h=>number(h.post)).filter(v=>v>0)
+    );
+    const currentBucket=postBucket(horse.post,todaysSpan);
+
+    const collect=(trackOnly)=>{
+        const observations=[];
+        rows.forEach(sourceHorse=>{
+            (sourceHorse.ppRaces || []).forEach(r=>{
+                const priorTrack=String(r.track || "").trim().toUpperCase();
+                const priorDistance=Math.abs(number(r.dist));
+                const entrants=number(r.entrants);
+                const priorPost=number(r.post);
+                const performance=postFinishPerformance(r.fin,entrants);
+
+                if(performance===null) return;
+                if(!sameSurface(targetSurface,r.surf)) return;
+                if(targetDistance>0 && priorDistance>0 && Math.abs(priorDistance-targetDistance)>220) return;
+                if(trackOnly && targetTrack && priorTrack!==targetTrack) return;
+
+                observations.push({
+                    bucket:postBucket(priorPost,entrants),
+                    performance
+                });
+            });
+        });
+        return observations;
+    };
+
+    let observations=collect(true);
+    let source="track";
+    if(observations.length < 20){
+        observations=collect(false);
+        source="all";
+    }
+
+    if(observations.length < 12){
+        return {score:.5,sample:observations.length,bucket:currentBucket,source,delta:0,bucketSample:0};
+    }
+
+    const overall=observations.reduce((sum,x)=>sum+x.performance,0)/observations.length;
+    const bucketRows=observations.filter(x=>x.bucket===currentBucket);
+
+    if(bucketRows.length < 4){
+        return {score:.5,sample:observations.length,bucket:currentBucket,source,delta:0,bucketSample:bucketRows.length};
+    }
+
+    const raw=bucketRows.reduce((sum,x)=>sum+x.performance,0)/bucketRows.length;
+    const priorWeight=20;
+    const shrunk=(raw*bucketRows.length + overall*priorWeight)/(bucketRows.length+priorWeight);
+    const delta=shrunk-overall;
+    const score=Math.max(.20,Math.min(.80,.5+delta*2));
+
+    return {
+        score,
+        sample:observations.length,
+        bucket:currentBucket,
+        source,
+        delta,
+        bucketSample:bucketRows.length
+    };
+}
+
+function calculateHorseScore(horse,field){
+
+    const pp=relativeFeature(horse,field,x=>number(x.primePower));
+    const currentSpeed=relativeFeature(horse,field,x=>number(x.lastSpeed));
+    const recentSpeed=speedFormFit(horse,field);
+    const bestSpeed=bestSpeedFit(horse,field);
+    const form=formScore(horse);
+    const pace=paceFit(horse,field);
+    const cls=classFit(horse,field);
+
+    const career=experienceRate(horse);
+    const trainer=trainerStrength(horse);
+    const jockey=jockeyStrength(horse);
+    const combo=tjComboStrength(horse);
+    const workouts=workoutScore(horse);
+    const postData=postPositionEvidence(horse,field);
+    const postFit=postData.score;
+
+    const surfaceFit=percentileRank(
+        surfaceSpeedScore(horse),
+        field.map(surfaceSpeedScore)
+    );
+
+    const conditionFit=percentileRank(
+        conditionSpeedScore(horse),
+        field.map(conditionSpeedScore)
+    );
+
+    let score =
+        pp*.20 +
+        currentSpeed*.10 +
+        recentSpeed*.12 +
+        bestSpeed*.06 +
+        form*.12 +
+        pace*.08 +
+        cls*.10 +
+        surfaceFit*.04 +
+        conditionFit*.04 +
+        career*.04 +
+        trainer*.035 +
+        jockey*.035 +
+        combo*.025 +
+        workouts*.015;
+
+    // Quirin speed points are useful for pace/position, but should
+    // not dominate the model.
+    const q=number(horse.speedPoints);
+    if(q>0){
+        const qField=field.map(x=>number(x.speedPoints)).filter(x=>x>0);
+        score += percentileRank(q,qField)*.02;
+    }
+
+    // Small, empirical post-position adjustment tied to today's surface/distance.
+    score += (postFit-.5)*.05;
+
+    // Recency: very long layoffs add uncertainty, not an automatic
+    // penalty. Recent races are already represented in form/speed.
+    const days=number(horse.daysSinceLast);
+    if(days>120) score-=.015;
+    else if(days>60) score-=.006;
+
+    const drop=classDropStatus(horse);
+    if(drop.dropping && !drop.recent) score-=.07;
+    else if(drop.dropping && drop.recent) score+=.012;
+
+    // New rider is an uncertainty factor. Do not automatically
+    // eliminate a horse.
+    if(horse.jockeyChanged) score-=.018;
+
+    const quality=dataQuality(horse);
+    if(quality.label==="POOR") score-=.08;
+    else if(quality.label==="PARTIAL") score-=.025;
+    if(!number(horse.primePower) && !number(horse.lastSpeed)) score-=.035;
+
+    // Unknown data should not be rewarded. Prime Power remains the
+    // strongest single signal, but it is no longer the whole model.
+    score=Math.max(.01,Math.min(.99,score));
+
+    return {
+        score,
+        components:{
+            pp,currentSpeed,recentSpeed,bestSpeed,form,
+            pace,cls,surfaceFit,conditionFit,career,trainer,jockey,combo,workouts,
+            postFit,postData,quality
+        }
+    };
+}
+
+function calculateProbabilities(field){
+
+    const scored=field.map(horse=>{
+        const model=calculateHorseScore(horse,field);
+        return {
+            horse,
+            raw:model.score,
+            components:model.components
+        };
+    });
+
+    /*
+    Use a centered softmax. A stronger spread than the old x5
+    makes meaningful field differences visible, while the
+    probability remains normalized to the race.
+    */
+    const temperature=.075;
+    const maxRaw=Math.max(...scored.map(x=>x.raw));
+    const exps=scored.map(x=>Math.exp((x.raw-maxRaw)/temperature));
+    const total=exps.reduce((a,b)=>a+b,0);
+
+    scored.forEach((x,i)=>{
+        x.probability=total ? exps[i]/total : 1/scored.length;
+    });
+
+    return scored.sort((a,b)=>b.probability-a.probability);
+}
+
+
+/* ============================================================
+   CONFIDENCE
+============================================================ */
+
+function getConfidence(top,second){
+
+    if(!top){
+        return {
+            score:0,
+            label:"NO BET",
+            className:"conf-caution"
+        };
+    }
+
+    const gap =
+        top.probability -
+        (second ? second.probability : 0);
+
+
+    let score =
+        50 +
+        gap*300;
+
+
+    /*
+    More separation = more confidence.
+    */
+
+    score =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                score
+            )
+        );
+
+
+    let label;
+    let className;
+
+
+    if(score >= 72){
+
+        label = "STRONG";
+        className = "conf-strong";
+
+    }else if(score >= 60){
+
+        label = "SOLID";
+        className = "conf-solid";
+
+    }else if(score >= 48){
+
+        label = "LEAN";
+        className = "conf-lean";
+
+    }else{
+
+        label = "CAUTION";
+        className = "conf-caution";
+
+    }
+
+
+    return {
+        score,
+        label,
+        className
+    };
+
+}
+
+
+/* ============================================================
+   PERFORMANCE + EARNINGS SUPPORT — v7.15
+   Uses only the horse data parsed from the race card; no comparison badge.
+   This layer does not alter the underlying Horse Handicap score.
+   It describes whether the TOP HORSE is supported by independent
+   performance and earnings evidence already present in the DRF.
+
+   Earnings evidence:
+     • career earnings per start for every surface
+     • turf earnings per start when today's race is turf
+     • off-track earnings per start when today's dirt race is wet/off
+   Performance evidence:
+     • today's surface-specific Best Speed
+     • last-race speed
+     • Speed Confirmed (#1 last speed AND #1 best speed)
+
+   The old 52.6% / 64.7% support percentages are intentionally retired.
+   They described a different morning-line support rule and must not be
+   carried forward as win probabilities for this new evidence set.
+============================================================ */
+function avg3RaceSpeed(horse){
+    const vals=(horse.ppRaces || [])
+        .slice(0,3)
+        .map(r=>number(r.speed))
+        .filter(v=>v>0);
+    if(vals.length) return vals.reduce((a,b)=>a+b,0)/vals.length;
+    return number(horse.lastSpeed);
+}
+
+function fieldTopHorse(field, selector){
+    const valid=(field || [])
+        .map(h=>({h,v:number(selector(h))}))
+        .filter(x=>x.v>0);
+    if(!valid.length) return null;
+    const best=Math.max(...valid.map(x=>x.v));
+    const ties=valid.filter(x=>x.v===best).map(x=>x.h);
+    return {best,ties};
+}
+
+function isTopOn(horse,field,selector){
+    const t=fieldTopHorse(field,selector);
+    return !!(t && t.ties.some(h=>h.id===horse.id));
+}
+
+function rankValue(horse, field, selector){
+    const vals=(field||[])
+        .map(h=>({h,v:number(selector(h))}))
+        .filter(x=>x.v>0)
+        .sort((a,b)=>b.v-a.v);
+    const row=vals.find(x=>x.h.id===horse.id);
+    if(!row) return {rank:null,count:vals.length,value:0,tied:false};
+    const rank=1+vals.filter(x=>x.v>row.v).length;
+    const tied=vals.filter(x=>x.v===row.v).length>1;
+    return {rank,count:vals.length,value:row.v,tied};
+}
+
+function careerEPS(h){
+    const st=number(h.starts), e=number(h.careerEarnings);
+    return st>0 && e>0 ? e/st : 0;
+}
+function turfEPS(h){
+    const st=number(h.turfStarts), e=number(h.turfEarnings);
+    return st>0 && e>0 ? e/st : 0;
+}
+function wetEPS(h){
+    const st=number(h.wetStarts), e=number(h.wetEarnings);
+    return st>0 && e>0 ? e/st : 0;
+}
+
+function performanceEarningsSupport(field, horse){
+    const active=(field||[]).filter(h=>!h.scratched);
+    if(!horse || !active.length) return {level:'thin',label:'THIN DATA',points:0,max:0,text:'No usable field data.'};
+
+    let points=0, max=0;
+    const notes=[];
+
+    const ce=rankValue(horse,active,careerEPS);
+    if(ce.count>=3 && ce.rank!==null){
+        max+=2;
+        if(ce.rank===1){points+=2; notes.push(`career earnings/start #1 (${formatRecordMoney(ce.value)})`);}
+        else if(ce.rank<=3){points+=1; notes.push(`career earnings/start #${ce.rank} (${formatRecordMoney(ce.value)})`);}
+        else notes.push(`career earnings/start #${ce.rank}`);
+    }else{
+        notes.push('career earnings/start too thin to rank');
+    }
+
+    const g=surfaceGroup(horse.currentSurface);
+    const cg=conditionGroup(horse.currentTrackCondition);
+    let surfRank=null, surfName='';
+    if(g==='T'){
+        surfRank=rankValue(horse,active,turfEPS); surfName='turf earnings/start';
+    }else if(g==='D' && cg==='OFF'){
+        surfRank=rankValue(horse,active,wetEPS); surfName='off-track earnings/start';
+    }
+    if(surfRank){
+        if(surfRank.count>=3 && surfRank.rank!==null){
+            max+=2;
+            if(surfRank.rank===1){points+=2; notes.push(`${surfName} #1 (${formatRecordMoney(surfRank.value)})`);}
+            else if(surfRank.rank<=3){points+=1; notes.push(`${surfName} #${surfRank.rank} (${formatRecordMoney(surfRank.value)})`);}
+            else notes.push(`${surfName} #${surfRank.rank}`);
+        }else{
+            notes.push(`${surfName} too thin to rank`);
+        }
+    }
+
+    const sb=rankValue(horse,active,surfaceBestSpeed);
+    if(sb.count>=3 && sb.rank!==null){
+        max+=2;
+        if(sb.rank===1 && !sb.tied){points+=2; notes.push(`sole #1 surface Best Speed (${Math.round(sb.value)})`);}
+        else if(sb.rank===1 || sb.rank===2){points+=1; notes.push(`surface Best Speed #${sb.rank}${sb.tied?' (tied)':''}`);}
+        else notes.push(`surface Best Speed #${sb.rank}`);
+    }else{
+        notes.push('surface Best Speed too thin to rank');
+    }
+
+    const ls=rankValue(horse,active,h=>number(h.lastSpeed));
+    if(ls.count>=3 && ls.rank!==null){
+        max+=1;
+        if(ls.rank===1){points+=1; notes.push(`last speed #1 (${Math.round(ls.value)})`);}
+        else notes.push(`last speed #${ls.rank}`);
+    }
+
+    const sc=speedConfirmedInfo(active,horse);
+    max+=1;
+    if(sc.confirmed){points+=1; notes.push('Speed Confirmed');}
+
+    const ratio=max ? points/max : 0;
+    let level='thin', label='THIN / MIXED';
+    if(max>=4 && ratio>=.72){level='strong';label='STRONG SUPPORT';}
+    else if(max>=4 && ratio>=.50){level='solid';label='SOLID SUPPORT';}
+    else if(max>=3 && ratio>=.30){level='mixed';label='MIXED SUPPORT';}
+
+    return {level,label,points,max,ratio,notes,text:notes.join(' · '),career:ce,surface:surfRank,surfaceName:surfName,best:sb,last:ls,speedConfirmed:sc.confirmed};
+}
+
+function performanceEarningsHTML(field,horse){
+    const s=performanceEarningsSupport(field,horse);
+    const cls=s.level==='strong'?'':' warn';
+    return `<div class="hist-confirm${cls}"><span class="hist-tag">PERFORMANCE + EARNINGS</span>`+
+      `<b>${safe(s.label)}</b> · ${s.points}/${s.max || 0} evidence points`+
+      `<div style="margin-top:5px">${safe(s.text)}. <b>This is support evidence, not a calibrated win probability.</b></div></div>`;
+}
+
+function isFirstTimeStarterForQuality(h){
+    const usable=(h.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
+    return usable.length===0;
+}
+
+function raceBetQuality(field, modelTopHorse){
+    const active=(field || []).filter(h=>!h.scratched);
+    const support=performanceEarningsSupport(active,modelTopHorse);
+    const fieldSize=active.length;
+    const ftsCount=active.filter(isFirstTimeStarterForQuality).length;
+
+    if(support.level==='thin'){
+        return {level:'pass',label:'PASS / THIN DATA',fieldSize,ftsCount,support,
+            text:'Performance and earnings evidence is too thin or too mixed to upgrade this race.'};
+    }
+    if(support.level==='strong' && ftsCount===0 && fieldSize<=9){
+        return {level:'strong',label:'BET — STRONG',fieldSize,ftsCount,support,
+            text:`Top horse has strong performance/earnings support, no first-time starters, and ${fieldSize} runners.`};
+    }
+    if(ftsCount>0 && fieldSize>=10){
+        return {level:'pass',label:'PASS / CAUTION',fieldSize,ftsCount,support,
+            text:`Performance/earnings support is present, but ${ftsCount} first-time starter${ftsCount===1?'':'s'} and a ${fieldSize}-horse field make the race too uncertain.`};
+    }
+    if(ftsCount>0){
+        return {level:'caution',label:'CAUTION — FTS',fieldSize,ftsCount,support,
+            text:`Performance/earnings support is present, but ${ftsCount} first-time starter${ftsCount===1?' is':'s are'} not fully measurable from past performance.`};
+    }
+    if(fieldSize>=10){
+        return {level:'caution',label:'CAUTION — LARGE FIELD',fieldSize,ftsCount,support,
+            text:`Performance/earnings support is present, but the field has ${fieldSize} runners.`};
+    }
+    if(support.level==='strong' || support.level==='solid'){
+        return {level:'standard',label:'BET — STANDARD',fieldSize,ftsCount,support,
+            text:`Top horse is supported by ${support.points}/${support.max} performance/earnings evidence points.`};
+    }
+    return {level:'caution',label:'CAUTION — MIXED',fieldSize,ftsCount,support,
+        text:'The top horse has some performance/earnings support, but the evidence is mixed.'};
+}
+
+function raceBetQualityHTML(field, modelTopHorse){
+    const q=raceBetQuality(field,modelTopHorse);
+    return `<div class="race-quality rq-${q.level}"><span class="rq-tag">${safe(q.label)}</span>${safe(q.text)} <b>No historical profile percentage is being assigned to this new evidence set.</b></div>`;
+}
+function finalRaceDecision(top,field){
+    const structural=raceDecision(top,field);
+    const quality=raceBetQuality(field,top.horse);
+    const pass=structural.pass || quality.level==='pass';
+    const label=pass ? (structural.pass ? 'PASS' : quality.label) : quality.label;
+    const reasons=[...structural.reasons];
+    if(quality.level==='pass') reasons.push(quality.text);
+    return {pass,label,reasons,warnings:structural.warnings || [],structural,quality};
+}
+
+
+function openProbability(raceNum){
+    const d=probabilityDetails[String(raceNum)];
+    if(!d) return;
+    $("probContent").innerHTML=`
+      <h2 id="probTitle" style="font-size:18px;margin-right:30px;">Race ${safe(raceNum)} — Model Probability</h2>
+      <div class="model-prob" style="margin:8px 0;">${(d.probability*100).toFixed(1)}%</div>
+      <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
+      <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
+      <div class="metric-line">Decision: <b>${safe(d.decision.label || (d.pass ? "PASS" : "REVIEW"))}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
+      ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
+      ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
+      ${d.pass ? `<div class="warning-box"><b>PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
+      ${(!d.pass && d.decision.warnings && d.decision.warnings.length) ? `<div class="warning-box"><b>Condition note:</b> ${safe(d.decision.warnings.join("; "))}. Warning only; it does not override the final bet-quality decision.</div>` : ""}
+      <div class="warning-box"><b>Not a calibrated win probability.</b> This is a relative model share produced from this field's scores. Use it for ranking, not as a betting edge or fair odds.</div>
+    `;
+    $("probOverlay").classList.add("show");
+}
+
+$("probCloseBtn").addEventListener("click",()=>$("probOverlay").classList.remove("show"));
+$("probOverlay").addEventListener("click",e=>{if(e.target===$("probOverlay")) $("probOverlay").classList.remove("show");});
+
+/* ============================================================
+   EXPLANATION
+============================================================ */
+
+function buildReason(top,second,field){
+
+    const h =
+        top.horse;
+
+    const c =
+        top.components;
+
+    const reasons = [];
+
+
+    if(c.pp >= .80){
+
+        reasons.push(
+            "excellent Prime Power position"
+        );
+
+    }
+
+    if(c.currentSpeed >= .80 && number(h.lastSpeed)>0){
+
+        reasons.push(
+            "top current-speed position"
+        );
+
+    }
+
+    if(c.form >= .70){
+
+        reasons.push(
+            "strong recent form"
+        );
+
+    }
+
+    if(c.bestSpeed >= .80){
+
+        reasons.push(
+            "strong best-speed figure"
+        );
+
+    }
+
+    if(c.career >= .20){
+
+        reasons.push(
+            "useful career win rate"
+        );
+
+    }
+
+    if(c.trainer >= .20){
+
+        reasons.push(
+            "productive trainer win rate"
+        );
+
+    }
+
+    if(c.jockey >= .20){
+
+        reasons.push(
+            "productive jockey win rate"
+        );
+
+    }
+
+    if(c.postFit >= .60){
+        reasons.push(
+            "favorable post profile for today's surface and distance"
+        );
+    }
+
+
+    if(!reasons.length){
+
+        reasons.push(
+            "best overall composite model score"
+        );
+
+    }
+
+
+    let text =
+        reasons.join(", ");
+
+
+    if(second){
+
+        const gap =
+            (
+                top.probability -
+                second.probability
+            )*100;
+
+        text +=
+            `. Model separation from ` +
+            `#${second.horse.post} ` +
+            `${second.horse.horse}: ` +
+            `${gap.toFixed(1)} percentage points`;
+
+    }
+
+
+    return text;
+
+}
+
+
+/* ============================================================
+   COMPUTE RACE CARD
+============================================================ */
+
+function classificationEvidence(item,scored,field){
+    const horse=item.horse;
+    const pp=(horse.ppRaces || []).filter(p=>number(p.fin)>0 && number(p.fin)<90);
+    const rank=scored.indexOf(item)+1;
+
+    // Market-frame classification baseline:
+    // the MARKET creates the elimination cut. 12-1+ OR outside the top five
+    // is a Pretender candidate. Lack of evidence can rescue the horse to
+    // Questionable, but it does not promote it to Contender.
+    const market=field
+        .filter(h=>oddsDecimal(h.odds)!==null)
+        .slice()
+        .sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+    const marketIndex=market.findIndex(h=>h.id===horse.id);
+    const marketRank=marketIndex>=0 ? marketIndex+1 : null;
+    const dec=oddsDecimal(horse.odds);
+    const price=dec==null ? null : dec-1;
+    const cutReasons=[];
+    if(price!==null && price>=12) cutReasons.push(`${safe(horse.odds)} — 12-1 or longer`);
+    if(marketRank!==null && marketRank>5) cutReasons.push(`${marketRank}th choice of ${market.length}`);
+
+    if(cutReasons.length){
+        const debut=!pp.length || number(horse.starts)===0;
+
+        // Same rescue principle as the supplied program: a horse with no form
+        // cannot honestly be called a Pretender.
+        if(debut){
+            return {label:"QUESTIONABLE",reason:`${cutReasons.join("; ")}; first-time starter / no usable form — insufficient evidence to eliminate.`};
+        }
+
+        // A price-cut horse with repeated competitive comparable form stays
+        // Questionable rather than being thrown out solely by the market.
+        const targetSurface=horse.currentSurface;
+        const targetDistance=Math.abs(number(horse.currentDistance));
+        let comparable=pp.filter(p=>{
+            const d=Math.abs(number(p.dist));
+            const surfaceOK=!targetSurface || !p.surf || sameSurface(targetSurface,p.surf);
+            const distanceOK=!targetDistance || !d || Math.abs(d-targetDistance)<=330;
+            return surfaceOK && distanceOK;
+        });
+        if(!comparable.length) comparable=pp.slice(0,4);
+        const recent=comparable.slice(0,4);
+        const competitive=recent.filter(p=>{
+            const fin=number(p.fin), n=number(p.entrants);
+            return fin>0 && (fin<=3 || (n>=4 && fin<=Math.ceil(n*.40)));
+        }).length;
+        if(recent.length>=3 && competitive>=2){
+            return {label:"QUESTIONABLE",reason:`${cutReasons.join("; ")}; but ${competitive} of ${recent.length} comparable/recent starts were competitive — keep live for review.`};
+        }
+
+        return {label:"PRETENDER",reason:`Market elimination evidence: ${cutReasons.join("; ")}. Has usable past performances and not enough recent comparable form to override the cut.`};
+    }
+
+    // A horse beaten 10L+ remains Questionable rather than automatically eliminated,
+    // not Pretender. Preserve that caution.
+    if(pp.length){
+        const targetSurface=horse.currentSurface;
+        const targetDistance=Math.abs(number(horse.currentDistance));
+        const comparable=pp.filter(p=>{
+            const d=Math.abs(number(p.dist));
+            const surfaceOK=!targetSurface || !p.surf || sameSurface(targetSurface,p.surf);
+            const distanceOK=!targetDistance || !d || Math.abs(d-targetDistance)<=330;
+            return surfaceOK && distanceOK;
+        });
+        const last=(comparable.length?comparable:pp)[0];
+        const fin=number(last && last.fin), n=number(last && last.entrants);
+        if(fin>0 && n>=4 && fin>Math.ceil(n*.80)){
+            return {label:"QUESTIONABLE",reason:"Poor last comparable finish, but still inside the market cut — review rather than eliminate."};
+        }
+    }
+
+    return {label:"CONTENDER",reason:"Inside the market's top-five / under-12-1 frame; no elimination trigger."};
+}
+
+
+/* Performance/earnings support is defined above and uses only card data. */
+
+function decisionAlsoWithShot(scored,classMap,top){
+    const live=scored.filter(item=>
+        item.horse.id!==top.horse.id &&
+        classMap[item.horse.id] &&
+        classMap[item.horse.id].label!=="PRETENDER"
+    );
+    if(!live.length){
+        return `<div class="decision-also"><b>No other live contender.</b> The remaining runners are classified Pretender.</div>`;
+    }
+    return `<div class="decision-also"><b>Also with a shot:</b> `+
+      live.map(item=>{
+        const cls=classMap[item.horse.id].label;
+        return `#${safe(item.horse.post)} ${safe(item.horse.horse)} `+
+               `<span class="badge ${cls==="QUESTIONABLE"?"badge-blue":""}">${safe(cls)}</span>`;
+      }).join(" · ")+
+      `<br><span class="note">Same classification used on the Contenders tab; listed in model order.</span></div>`;
+}
+
+function currentRaceClassificationMap(field){
+    const scored=calculateProbabilities(field.filter(h=>!h.scratched));
+    const map={};
+    scored.forEach(item=>map[item.horse.id]=classificationEvidence(item,scored,field.filter(h=>!h.scratched)));
+    return {scored,map};
+}
+
+function trainerMultipleEntryMap(field){
+    const counts={};
+    (field || []).forEach(h=>{
+        const key=normalizeName(h.trainer);
+        if(key) counts[key]=(counts[key]||0)+1;
+    });
+    return counts;
+}
+
+
+function money0(v){
+    const n=number(v);
+    return n>0 ? "$"+Math.round(n).toLocaleString() : "";
+}
+
+function raceTypeLabel(code){
+    const c=String(code||"").trim().toUpperCase();
+    const map={
+        "G1":"Grade 1 Stakes","G2":"Grade 2 Stakes","G3":"Grade 3 Stakes",
+        "N":"Stakes / Handicap","A":"Allowance","R":"Starter Allowance",
+        "T":"Starter Handicap","C":"Claiming","CO":"Optional Claiming",
+        "S":"Maiden Special Weight","M":"Maiden Claiming",
+        "AO":"Allowance Optional Claiming","MO":"Maiden Optional Claiming",
+        "NO":"Optional Claiming Stakes"
+    };
+    return map[c] || c || "Race";
+}
+
+function cleanRaceConditions(text){
+    return String(text||"")
+        .replace(/;/g,",")
+        .replace(/\s+/g," ")
+        .trim();
+}
+
+function raceConditionsHTML(horse){
+    if(!horse) return "";
+    const parts=[];
+    parts.push(`<b>${safe(surfaceLabel(horse.currentSurface))}</b>`);
+    if(number(horse.currentDistance)>0) parts.push(`<b>${safe(formatDistance(horse.currentDistance))}</b>`);
+    parts.push(`<b>${safe(raceTypeLabel(horse.raceType))}</b>`);
+    if(horse.currentRaceClass) parts.push(`<b>${safe(horse.currentRaceClass)}</b>`);
+    if(number(horse.purse)>0) parts.push(`Purse <b>${safe(money0(horse.purse))}</b>`);
+    if(number(horse.claimingPrice)>0) parts.push(`Claiming price <b>${safe(money0(horse.claimingPrice))}</b>`);
+    const cond=cleanRaceConditions(horse.raceConditions);
+    return `
+      <div class="metric-line" style="margin:6px 0 7px;line-height:1.55;">
+        ${parts.join(" &nbsp; | &nbsp; ")}
+      </div>
+      ${cond ? `<div class="note" style="margin:0 0 10px;line-height:1.55;"><b>Race conditions:</b> ${safe(cond)}</div>` : ``}
+    `;
+}
+
+function classStrengthFromValues(purse,claiming){
+    const p=number(purse), c=number(claiming);
+    if(!p && !c) return 0;
+    return Math.log10(1+p)*10 + Math.log10(1+c)*4;
+}
+
+function todayClassStrength(horse){
+    return classStrengthFromValues(horse.purse,horse.claimingPrice);
+}
+
+function ppClassStrength(pp){
+    return classStrengthFromValues(pp && pp.purse, pp && pp.claimingPrice);
+}
+
+function classMoveRead(horse){
+    const last=(horse.ppRaces||[]).find(p=>ppClassStrength(p)>0);
+    const now=todayClassStrength(horse);
+    const prev=last ? ppClassStrength(last) : 0;
+    if(!now || !prev) return {label:"UNKNOWN",detail:"insufficient class data"};
+    const delta=now-prev;
+    if(delta>0.75) return {label:"UP",detail:"higher level than last start"};
+    if(delta<-0.75) return {label:"DOWN",detail:"lower level than last start"};
+    return {label:"SAME",detail:"about the same level as last start"};
+}
+
+function ppClassLadder(pp,horse){
+    const now=todayClassStrength(horse);
+    const past=ppClassStrength(pp);
+    if(!now || !past) return {label:"?",css:"badge-blue",title:"class comparison unavailable"};
+    const d=past-now;
+    if(d>0.75) return {label:"▲",css:"badge-red",title:"past race was ABOVE / tougher than today's level"};
+    if(d<-0.75) return {label:"▼",css:"badge-green",title:"past race was BELOW / easier than today's level"};
+    return {label:"=",css:"badge-blue",title:"past race was about the SAME level as today"};
+}
+
+function ppClassLadderHTML(pp,horse){
+    const x=ppClassLadder(pp,horse);
+    return `<span class="badge ${x.css}" title="${safe(x.title)}" style="padding:1px 5px;margin-left:4px;">${x.label}</span>`;
+}
+
+function competitiveAtLevel(pp){
+    const fin=number(pp && pp.fin);
+    const bl=number(pp && pp.beatenLengths);
+    return (fin>0 && fin<=4) || (bl>=0 && bl<=5);
+}
+
+function surfaceMatchesToday(pp,horse){
+    return sameSurface(pp && pp.surf, horse && horse.currentSurface);
+}
+
+function entryLevelFit(horse){
+    const now=todayClassStrength(horse);
+    const recent=(horse.ppRaces||[]).slice(0,6)
+        .map(p=>({p, strength:ppClassStrength(p)}))
+        .filter(x=>x.strength>0);
+    if(number(horse.starts)===0 || !recent.length || !now){
+        return {label:"UNKNOWN",detail:"not enough race/class history", comparable:0, competitive:0, surfaceCompetitive:0, avgSpeed:null};
+    }
+    const comparable=recent.filter(x=>x.strength >= now-0.75);
+    const competitive=comparable.filter(x=>competitiveAtLevel(x.p));
+    const surfaceComparable=comparable.filter(x=>surfaceMatchesToday(x.p,horse));
+    const surfaceCompetitive=surfaceComparable.filter(x=>competitiveAtLevel(x.p));
+    const speedVals=comparable.map(x=>number(x.p.speed)).filter(v=>v>0);
+    const avgSpeed=speedVals.length ? speedVals.reduce((a,b)=>a+b,0)/speedVals.length : null;
+    const move=classMoveRead(horse);
+    let label,detail;
+    if(competitive.length>=2 && (surfaceCompetitive.length>=1 || !surfaceComparable.length)){
+        label="PROVEN";
+        detail=`competitive ${competitive.length} times at a similar or tougher level${surfaceCompetitive.length ? `; ${surfaceCompetitive.length} on today's surface` : ''}`;
+    } else if(competitive.length>=1){
+        label="COMPETITIVE";
+        detail=`${competitive.length} recent competitive effort${competitive.length===1?'':'s'} at a similar or tougher level${surfaceCompetitive.length ? `; surface evidence supports it` : ''}`;
+    } else if(move.label==="DOWN" && comparable.length>=1){
+        label="CLASS RELIEF";
+        detail=`dropping from tougher company; ${comparable.length} recent comparable/tougher start${comparable.length===1?'':'s'} but no strong finish yet`;
+    } else if(comparable.length>=2){
+        label="OVERMATCHED";
+        detail=`faced this level or tougher ${comparable.length} times recently without a competitive finish`;
+    } else if(move.label==="UP"){
+        label="UNPROVEN UP";
+        detail="moving up with little evidence that it can sustain today's stronger level";
+    } else {
+        label="UNPROVEN";
+        detail="limited evidence against today's entry level";
+    }
+    return {label,detail,comparable:comparable.length,competitive:competitive.length,
+            surfaceComparable:surfaceComparable.length,surfaceCompetitive:surfaceCompetitive.length,avgSpeed};
+}
+
+function classMoveBadge(horse){
+    const m=classMoveRead(horse);
+    const cls=m.label==="UP" ? "badge-red" : m.label==="DOWN" ? "badge-green" : m.label==="SAME" ? "badge-blue" : "";
+    return `<span class="badge ${cls}" title="${safe(m.detail)}">${safe(m.label)}</span>`;
+}
+
+function entryLevelHTML(horse){
+    const e=entryLevelFit(horse);
+    const cls=e.label==="PROVEN" || e.label==="COMPETITIVE" || e.label==="CLASS RELIEF"
+        ? "badge-green"
+        : e.label==="OVERMATCHED" || e.label==="UNPROVEN UP"
+        ? "badge-red"
+        : "badge-blue";
+    const speed=e.avgSpeed!==null ? ` · avg comparable speed ${e.avgSpeed.toFixed(0)}` : '';
+    return `<span class="badge ${cls}" title="${safe(e.detail)}">${safe(e.label)}</span><div class="note" style="font-size:10px;margin-top:3px;">${safe(e.detail)}${speed}</div>`;
+}
+
+function paceStyleScore(h){
+    const q=number(h && h.quirin);
+    if(!q) return null;
+    const st=String((h && h.runStyle)||'').toUpperCase().replace(/\s/g,'');
+    const bump={E:1.5,EP:1.0,'E/P':1.0,P:0,'P/S':-0.5,S:-1.0,SS:-1.5};
+    return q + (bump[st]!==undefined ? bump[st] : 0);
+}
+
+function paceProjection(field){
+    const active=(field||[]).filter(h=>!h.scratched);
+    const rated=active.map(h=>({h,q:number(h.quirin),r:paceStyleScore(h)})).filter(x=>x.r!==null).sort((a,b)=>b.r-a.r);
+    if(rated.length<3) return {label:"PACE UNKNOWN",detail:"not enough Quirin/run-style information"};
+    const speed=rated.filter(x=>x.q>=5);
+    const top=rated[0], second=rated[1];
+    if(speed.length===1 && top.r-second.r>=1.5){
+        return {label:"LONE SPEED",detail:`#${top.h.post} ${top.h.horse} projects to control the early pace`};
+    }
+    if(speed.length>=3){
+        const closers=active.filter(h=>/^(S|SS|P\/S)$/i.test(String(h.runStyle||''))).map(h=>`#${h.post} ${h.horse}`);
+        return {label:"CONTESTED",detail:`${speed.length} runners show genuine early speed${closers.length ? `; may help ${closers.slice(0,3).join(', ')}` : ''}`};
+    }
+    if(speed.length===2){
+        return {label:"PRESSURED",detail:`two credible speed horses (${speed.map(x=>`#${x.h.post}`).join(' and ')}) should keep the pace honest`};
+    }
+    return {label:"BALANCED",detail:"no extreme early-speed concentration is visible"};
+}
+
+function paceProjectionHTML(field){
+    const p=paceProjection(field);
+    const cls=p.label==="LONE SPEED" ? "badge-green" : p.label==="CONTESTED" ? "badge-red" : "badge-blue";
+    return `<div class="note" style="margin:7px 0 10px;line-height:1.55;"><b>Projected pace:</b> <span class="badge ${cls}">${safe(p.label)}</span> ${safe(p.detail)}</div>`;
+}
+
+function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
+    const trainerCounts=trainerMultipleEntryMap(field);
+    const ordered=[...field].sort((a,b)=>number(a.post)-number(b.post));
+    const shown=liveOnly ? ordered.filter(h=>h.scratched || (classMap[h.id] && classMap[h.id].label!=="PRETENDER")) : ordered;
+    const raceHorse=shown.find(h=>!h.scratched) || shown[0] || field[0];
+    return `
+    <div class="race-card" id="race-${liveOnly ? 'live' : 'full'}-${safe(raceNum)}">
+      <h3><span class="race-number-link" onclick="openRacePP('${safe(raceNum)}')" title="Open Past Performances for all horses in the selected field view">Race ${safe(raceNum)}</span> — ${liveOnly ? "Live Field: Contenders + Questionable" : "Full Field"} (${shown.filter(h=>!h.scratched).length} Active)
+      ${shown.some(h=>h.surfaceChanged) ? `<span class="badge badge-red">SURFACE CHANGED — ${safe(surfaceLabel((shown.find(h=>h.surfaceChanged)||shown[0]).currentSurface))}</span>` : ``}</h3>
+      ${raceConditionsHTML(raceHorse)}
+      ${paceProjectionHTML(field)}
+      <div class="table-wrap"><table class="compact-table"><thead><tr>
+        <th>Post</th><th>Horse</th><th>Rank</th><th>Model Share</th><th>Prime Power</th><th>Speed</th><th>M/L</th><th>Move</th><th>Can Compete Here?</th><th>Status</th>
+      </tr></thead><tbody>
+      ${shown.map(h=>{
+          const item=scored.find(x=>x.horse.id===h.id);
+          const cls=classMap[h.id];
+          const multi=trainerCounts[normalizeName(h.trainer)]>1;
+          const status=h.scratched ? '<span class="badge badge-red">SCRATCHED</span>' : cls ? `<span class="badge ${cls.label==="QUESTIONABLE" ? "badge-blue" : ""}">${cls.label}</span>` : '';
+          return `<tr class="${h.scratched?'scratched-row':''}">
+            <td>${safe(h.post)}</td>
+            <td><span style="font-weight:700;cursor:pointer;text-decoration:underline dotted;" onclick="openPP(${h.id})">${safe(h.horse)}</span>${h.jockeyChanged?'<span class="badge badge-red">NEW RIDER</span>':''}${multi?'<span class="trainer-multi">TRAINER MULTIPLE</span>':''}</td>
+            <td>${item?scored.indexOf(item)+1:'-'}</td>
+            <td>${item?(item.probability*100).toFixed(1)+'%':'-'}</td>
+            <td>${safe(h.score||h.primePower||'-')}</td>
+            <td>${safe(h.lastSpeed||'-')}</td>
+            <td>${safe(h.odds||'-')}</td>
+            <td>${classMoveBadge(h)}</td>
+            <td>${entryLevelHTML(h)}</td>
+            <td>${status}</td>
+          </tr>`;
+      }).join('')}
+      </tbody></table></div>
+      <div class="note" style="margin-top:8px;">
+        <b>Move</b> compares today's purse/claiming level with the horse's most recent usable class level.
+        <b>Entry Level Fit</b> asks whether the horse has actually been competitive (top 4 or within 5 lengths) at a similar or tougher level, with today's surface and comparable speed evidence shown when available. <b>Projected pace</b> uses Quirin speed points plus run style. These are evidence checks, not guarantees.
+      </div>
+    </div>`;
+}
+
+
+
+
+function goToRaceCard(raceNum){
+    activeRaceNumber=Number(raceNum);
+    showTab("card");
+    setRaceCardView("live");
+    const target=document.getElementById(`race-live-${raceNum}`) ||
+                 document.getElementById(`race-full-${raceNum}`);
+    if(target){
+        target.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+}
+
+function setRaceCardView(view){
+    raceCardView = view === "live" ? "live" : "full";
+    const full=$("fullFieldView"), live=$("liveFieldView");
+    if(!full || !live) return;
+    const isLive=raceCardView==="live";
+    full.style.display=isLive?"none":"block";
+    live.style.display=isLive?"block":"none";
+    document.querySelectorAll(".field-view-toggle button").forEach(b=>b.classList.toggle("on",b.dataset.view===raceCardView));
+}
+
+function renderRaceHorsePP(horse){
+    const races=(horse.ppRaces || []);
+    const works=eligibleWorkouts(horse);
+    return `
+      <div style="margin:18px 0 8px;padding-top:12px;border-top:2px solid var(--line);">
+        <h3 style="margin:0 0 8px;font-size:17px;">
+          #${safe(horse.post)} ${safe(horse.horse)}
+          ${horse.scratched ? '<span class="badge badge-red">SCRATCHED</span>' : ''}
+          ${horse.jockeyChanged ? '<span class="badge badge-red">JOCKEY CHANGED</span>' : ''}
+        </h3>
+        <div style="font-family:var(--mono);font-size:11px;line-height:1.6;margin-bottom:8px;">
+          Prime Power: <b>${safe(horse.score || horse.primePower || "N/A")}</b>
+          &nbsp; | &nbsp; Current Speed: <b>${safe(horse.lastSpeed || "N/A")}</b>
+          &nbsp; | &nbsp; Trainer: <b>${safe(horse.trainer || "N/A")}</b>
+          &nbsp; | &nbsp; Jockey: <b>${safe(horse.jockey || "N/A")}</b>
+          <br>Class move: ${classMoveBadge(horse)}
+          &nbsp; | &nbsp; Entry level fit: ${entryLevelHTML(horse)}
+        </div>
+        ${races.length ? `
+        <div class="table-wrap">
+          <table class="pp-table">
+            <thead><tr>
+              <th>Date</th><th>Track</th><th>Race</th><th>Distance</th><th>Surface</th><th>Post</th><th>Level</th><th>Finish</th><th>Win</th><th>Place</th><th>Show</th><th>Speed</th><th>Class</th><th>Comment</th>
+            </tr></thead>
+            <tbody>
+              ${races.map(p=>`<tr>
+                <td>${safe(formatDate(p.date))}</td>
+                <td>${safe(p.track)}</td>
+                <td>${safe(p.raceNum)}</td>
+                <td>${safe(formatDistance(p.dist))}</td>
+                <td>${safe(p.surf)}</td>
+                <td>${safe(p.post)}</td>
+                <td>${ppClassLadderHTML(p,horse)}</td>
+                <td>${safe(p.fin)}</td>
+                <td>${renderPPFinisher(p.winner,p,horse,"Win")}</td>
+                <td>${renderPPFinisher(p.placeHorse,p,horse,"Place")}</td>
+                <td>${renderPPFinisher(p.showHorse,p,horse,"Show")}</td>
+                <td><b>${safe(p.speed)}</b></td>
+                <td>${safe(p.raceClass || "-")}</td>
+                <td>${safe(p.comment)}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>` : '<div class="note">No usable past-performance races available.</div>'}
+        ${works.length ? `
+          <div style="margin-top:10px;font-weight:800;font-size:11px;text-transform:uppercase;">Recent Workouts — up to 4 within 30 days of race</div>
+          <div class="work-grid">
+            ${works.map(w=>`<div class="work-item"><b>${safe(w.date)}</b> — ${safe(w.track)}<br>Time: <b>${safe(w.time || "N/A")}</b>${w.description ? ` (${safe(w.description)})` : ''}</div>`).join("")}
+          </div>` : ''}
+      </div>`;
+}
+
+function openRacePP(raceNum){
+    activeRaceNumber=Number(raceNum);
+    const field=(computedRaces[String(raceNum)] || []).slice().sort((a,b)=>number(a.post)-number(b.post));
+    if(!field.length) return;
+
+    const activeField=field.filter(h=>!h.scratched);
+    const scored=activeField.length ? calculateProbabilities(activeField) : [];
+    const classMap={};
+    scored.forEach(item=>{ classMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
+
+    const liveOnly=raceCardView==="live";
+    const shown=liveOnly
+        ? field.filter(h=>h.scratched || !classMap[h.id] || classMap[h.id].label!=="PRETENDER")
+        : field;
+
+    $("ppContent").innerHTML = `
+      <h2 style="margin-right:30px;font-size:20px;">Race ${safe(raceNum)} — ${liveOnly ? "Live Field Past Performances" : "Full Field Past Performances"}</h2>
+      ${raceConditionsHTML(shown.find(h=>!h.scratched) || shown[0])}
+      ${paceProjectionHTML(field)}
+      <div class="note" style="margin-bottom:10px;">
+        ${liveOnly ? "Showing Contenders and Questionable / Live Longshots; Pretenders are hidden." : "Showing every runner in the field."}
+        Tap a horse name on the Race Card when you want only that horse's Past Performances. PP Level markers: ▲ past race tougher than today, = about the same, ▼ easier than today.
+      </div>
+      ${shown.map(renderRaceHorsePP).join("")}
+    `;
+    $("ppOverlay").classList.add("show");
+}
+
+function openDecisionHorse(id,raceNum){
+    showTab("card");
+    setRaceCardView("live");
+
+    const raceCard=document.getElementById(`race-live-${raceNum}`);
+    if(raceCard){
+        raceCard.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+
+    // Open the selected runner's complete Past Performances after the Full Field is shown.
+    setTimeout(()=>openPP(id),180);
+}
+
+
+function speedConfirmedInfo(field,horse){
+    const withLast=(field || []).filter(h=>number(h.lastSpeed)>0);
+    const withBest=(field || []).filter(h=>number(h.bestSpeed)>0);
+    if(withLast.length<2 || withBest.length<2 || !number(horse.lastSpeed) || !number(horse.bestSpeed)){
+        return {confirmed:false,valueWatch:false,marketRank:null};
+    }
+    const maxLast=Math.max(...withLast.map(h=>number(h.lastSpeed)));
+    const maxBest=Math.max(...withBest.map(h=>number(h.bestSpeed)));
+    const confirmed=number(horse.lastSpeed)===maxLast && number(horse.bestSpeed)===maxBest;
+    const market=(field || []).filter(h=>oddsDecimal(h.odds)!==null)
+        .slice().sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+    const idx=market.findIndex(h=>h.id===horse.id);
+    const marketRank=idx>=0 ? idx+1 : null;
+    return {confirmed,valueWatch:confirmed && marketRank!==null && marketRank>1,marketRank};
+}
+
+function speedConfirmedBadge(field,horse){
+    const sc=speedConfirmedInfo(field,horse);
+    if(!sc.confirmed) return '';
+    return `<span class="badge badge-green" title="#1 Last Speed and #1 Best Speed">SPEED CONFIRMED</span>${sc.valueWatch ? ' <span class="badge badge-blue">VALUE WATCH</span>' : ''}`;
+}
+
+function computeRaceCard(){
+
+    computedRaces = {};
+    probabilityDetails = {};
+
+
+    rows.forEach(r=>{
+
+        if(!r.horse){
+            return;
+        }
+
+        const key =
+            r.race || "1";
+
+        if(!computedRaces[key]){
+            computedRaces[key] = [];
+        }
+
+        computedRaces[key].push(r);
+
+    });
+
+
+    const raceKeys =
+        Object.keys(computedRaces)
+        .sort(
+            (a,b)=>
+                number(a)-number(b)
+        );
+
+
+    let bestHTML = "";
+    let betRaceRows = [];
+    let cardHTML = "";
+    let liveCardHTML = "";
+    let analysisHTML = "";
+
+
+    raceKeys.forEach(raceNum=>{
+
+        const fullField =
+            computedRaces[raceNum];
+
+        const activeField =
+            fullField.filter(
+                h=>!h.scratched
+            );
+
+
+        if(!activeField.length){
+
+            cardHTML += `
+
+            <div class="race-card race-anchor-target">
+
+                <h3>
+                    Race ${safe(raceNum)}
+                </h3>
+
+                <div class="warning-box">
+                    All runners in this race are scratched.
+                </div>
+
+            </div>
+
+            `;
+
+            return;
+
+        }
+
+
+        const scored =
+            calculateProbabilities(
+                activeField
+            );
+
+
+        const top =
+            scored[0];
+
+        const second =
+            scored[1];
+
+
+        const quality=top.components.quality;
+
+        const decision=finalRaceDecision(top,activeField);
+
+
+        const marketOrder=activeField
+            .filter(h=>oddsDecimal(h.odds)!==null)
+            .sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+        const marketIndex=marketOrder.findIndex(h=>h.id===top.horse.id);
+        const marketRank=marketIndex>=0 ? marketIndex+1 : null;
+
+
+        /*
+        Race-level warnings.
+        */
+
+        const closeRace =
+            second &&
+            (
+                top.probability -
+                second.probability
+            ) < .04;
+
+
+        const priceCheck = !decision.pass && marketRank!==null && marketRank>=3 && quality.label==="COMPLETE";
+        const passFlag = decision.pass;
+
+        probabilityDetails[String(raceNum)]={
+            horse:top.horse.horse,
+            probability:top.probability,
+            rank:1,
+            fieldSize:scored.length,
+            quality,
+            pass:passFlag,
+            decision,
+            marketRank,
+            performanceSupport:performanceEarningsSupport(activeField,top.horse),
+            raceQuality:decision.quality
+        };
+
+        const decisionClassMap={};
+        scored.forEach(item=>{ decisionClassMap[item.horse.id]=classificationEvidence(item,scored,activeField); });
+
+        const betQ=decision.quality;
+        const perfSupport=performanceEarningsSupport(activeField,top.horse);
+        betRaceRows.push({
+            race:String(raceNum), horse:top.horse, quality:betQ,
+            pass:passFlag, close:closeRace, marketRank,
+            speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed,
+            performanceSupport:perfSupport
+        });
+
+
+        bestHTML += `
+
+        <div class="best-pick race-anchor-target" id="decision-race-${safe(raceNum)}">
+
+            <div class="best-header">
+
+                <div>
+
+                    <div class="best-race">
+                        <span class="race-number-link" onclick="goToRaceCard('${safe(raceNum)}')">RACE ${safe(raceNum)}</span>
+                    </div>
+
+                    <div class="best-horse">
+
+                        #${safe(top.horse.post)}
+                        <span style="cursor:pointer;text-decoration:underline dotted;" onclick="openDecisionHorse(${top.horse.id},'${safe(raceNum)}')" title="Open Full Field and complete Past Performances">${safe(top.horse.horse)}</span>
+
+                        <span class="badge">
+                            TOP PICK
+                        </span>
+
+                        <span class="badge">
+                            ${safe(decision.label)}
+                        </span>
+
+                        ${
+                            top.horse.jockeyChanged
+                            ?
+                            '<span class="badge badge-red">NEW RIDER</span>'
+                            :
+                            ''
+                        }
+
+                        ${
+                            priceCheck
+                            ?
+                            '<span class="badge badge-blue">PRICE CANDIDATE</span>'
+                            :
+                            ''
+                        }
+
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    <div class="model-prob">
+                        <button class="prob-button" onclick="openProbability('${safe(raceNum)}')" aria-label="Open probability details">
+                            ${(top.probability*100).toFixed(1)}%
+                        </button>
+                    </div>
+
+                    <div class="confidence ${quality.label==="COMPLETE" ? "conf-strong" : quality.label==="PARTIAL" ? "conf-lean" : "conf-caution"}">
+                        MODEL SHARE · DATA QUALITY ${quality.label} · TAP % FOR DETAILS
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="metric-line">
+
+                Prime Power:
+                <b>
+                    ${safe(
+                        top.horse.score ||
+                        top.horse.primePower ||
+                        "N/A"
+                    )}
+                </b>
+
+                &nbsp; | &nbsp;
+
+                Current Speed:
+                <b>
+                    ${safe(
+                        top.horse.lastSpeed ||
+                        "N/A"
+                    )}
+                </b>
+
+                &nbsp; | &nbsp;
+
+                M/L:
+                <b>
+                    ${safe(
+                        top.horse.odds ||
+                        "N/A"
+                    )}
+                </b>
+
+            </div>
+
+
+            <div class="metric-line">
+
+                Trainer:
+                <b>
+                    ${safe(
+                        top.horse.trainer ||
+                        "N/A"
+                    )}
+                </b>
+
+                &nbsp; | &nbsp;
+
+                Jockey:
+                <b>
+                    ${safe(
+                        top.horse.jockey ||
+                        "N/A"
+                    )}
+                </b>
+
+            </div>
+
+            ${raceConditionsHTML(top.horse)}
+            ${paceProjectionHTML(field)}
+            <div class="metric-line">
+                Class move: ${classMoveBadge(top.horse)}
+                &nbsp; | &nbsp;
+                Entry level fit: ${entryLevelHTML(top.horse)}
+            </div>
+            <div class="metric-line">
+                Surface: <b>${safe(surfaceLabel(top.horse.currentSurface))}</b>
+                ${top.horse.surfaceChanged ? `<span class="badge badge-red">SURFACE CHANGED — RECOMPUTED</span>` : ``}
+                &nbsp; | &nbsp;
+                Track condition: <b>${safe(top.horse.currentTrackCondition || "Not supplied")}</b>
+                &nbsp; | &nbsp;
+                Surface Best Speed: <b>${surfaceBestSpeed(top.horse) || "N/A"}</b>
+                &nbsp; | &nbsp;
+                Morning-line rank: <b>${marketRank || "N/A"}</b>
+            </div>
+            ${top.horse.surfaceChanged ? `<div class="warning-box"><b>Weather/surface change:</b> ${safe(surfaceLabel(top.horse.originalSurface))} → ${safe(surfaceLabel(top.horse.currentSurface))}. Surface Fit, condition fit, surface-specific Best Speed, rankings and probabilities were recomputed.</div>` : ``}
+
+
+            ${performanceEarningsHTML(activeField, top.horse)}
+            ${raceBetQualityHTML(activeField, top.horse)}
+
+
+            <div class="reason-box">
+
+                <b>Why this is the top pick:</b>
+
+                ${safe(
+                    buildReason(
+                        top,
+                        second,
+                        activeField
+                    )
+                )}
+
+            </div>
+
+            ${decisionAlsoWithShot(scored,decisionClassMap,top)}
+
+            ${
+                passFlag
+                ? `<div class="warning-box"><b>PASS this race:</b> ${safe(decision.reasons.join("; "))}. The horse remains the model's top-ranked contender, but this is not a wager recommendation.</div>`
+                : ""
+            }
+            ${(!passFlag && decision.warnings && decision.warnings.length)
+                ? `<div class="warning-box"><b>Condition note:</b> ${safe(decision.warnings.join("; "))}. This is a warning only and does not override the final bet-quality decision.</div>`
+                : ""}
+
+
+            ${
+                closeRace
+                ?
+                `
+                <div class="warning-box">
+
+                    ⚠️ <b>Close race.</b>
+                    The model gives the top horse less than
+                    4 percentage points of separation from
+                    the second choice. Review the leading contenders;
+                    the #1 rating is not a stand-alone betting signal.
+
+                </div>
+                `
+                :
+                ""
+            }
+
+
+            ${
+                priceCheck
+                ?
+                `
+                <div class="metric-line">
+
+                    <b>Price candidate:</b>
+                    model rank #1 versus morning-line rank #${marketRank}.
+                    This is a review flag, not a proven wagering edge.
+
+                </div>
+                `
+                :
+                ""
+            }
+
+        </div>
+
+        `;
+
+
+        /* ====================================================
+           FULL FIELD + LIVE FIELD + THREE-WAY CLASSIFICATION
+           Morning line is NOT an elimination rule.
+        ==================================================== */
+        const classMap=decisionClassMap;
+
+        cardHTML += fieldTableHTML(raceNum,fullField,scored,classMap,false);
+        liveCardHTML += fieldTableHTML(raceNum,fullField,scored,classMap,true);
+
+        const contenders=scored.filter(item=>classMap[item.horse.id].label==="CONTENDER");
+        const questionable=scored.filter(item=>classMap[item.horse.id].label==="QUESTIONABLE");
+        const pretenders=scored.filter(item=>classMap[item.horse.id].label==="PRETENDER");
+        const trainerCounts=trainerMultipleEntryMap(activeField);
+        const multiTrainers=Object.keys(trainerCounts).filter(k=>trainerCounts[k]>1);
+
+        analysisHTML += `
+        <div class="analysis-card race-anchor-target" id="contenders-race-${safe(raceNum)}">
+          <h3><span class="race-number-link" onclick="goToRaceCard('${safe(raceNum)}')">Race ${safe(raceNum)}</span> — Contenders / Questionable / Pretenders</h3>
+          ${multiTrainers.length ? `<div class="warning-box"><b>TRAINER MULTIPLE ENTRY:</b> ${multiTrainers.map(k=>{const h=activeField.find(x=>normalizeName(x.trainer)===k);return safe(h?h.trainer:k);}).join(', ')}</div>` : ''}
+          <div class="analysis-grid">
+            <div class="analysis-box contender"><h4>Contenders (${contenders.length})</h4>
+              ${contenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b> ${speedConfirmedBadge(activeField,item.horse)}<br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span>${renderContenderPastPerformances(item.horse)}</div>`).join('') || '<div class="analysis-item">None.</div>'}
+            </div>
+            <div class="analysis-box questionable"><h4>Questionable / Live Longshots (${questionable.length})</h4>
+              ${questionable.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b> ${speedConfirmedBadge(activeField,item.horse)}<br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None.</div>'}
+            </div>
+            <div class="analysis-box pretender"><h4>Pretenders (${pretenders.length})</h4>
+              ${pretenders.map(item=>`<div class="analysis-item"><b>#${safe(item.horse.post)} ${safe(item.horse.horse)}</b> ${speedConfirmedBadge(activeField,item.horse)}<br>Model: <b>${(item.probability*100).toFixed(1)}%</b><br><span class="note">${safe(classMap[item.horse.id].reason)}</span></div>`).join('') || '<div class="analysis-item">None — every runner remains inside the live market/form frame.</div>'}
+            </div>
+          </div>
+          ${renderInlineRaceH2H(activeField)}
+        </div>`;
+    });
+
+    const betOrder={strong:0,standard:1,caution:2,pass:3};
+    const rankedBetRaces=betRaceRows.slice().sort((a,b)=>{
+        const ap=a.pass?4:(betOrder[a.quality.level]??3);
+        const bp=b.pass?4:(betOrder[b.quality.level]??3);
+        return ap-bp ||
+               ((b.performanceSupport?.ratio)||0)-((a.performanceSupport?.ratio)||0) ||
+               (b.speedConfirmed?1:0)-(a.speedConfirmed?1:0) ||
+               number(a.race)-number(b.race);
+    });
+    const bestBetRaces=rankedBetRaces.filter(x=>!x.pass && (x.quality.level==="strong" || x.quality.level==="standard"));
+    const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
+      <h3>Best Races to Bet</h3>
+      <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
+        Ranked by race quality, then Performance + Earnings support, then Speed Confirmed. The final race decision is unified: structural PASS rules and Performance + Earnings quality cannot display contradictory labels.
+      </p>
+      ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
+        <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
+          <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
+          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.quality.label)}</span>
+          ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
+          ${x.performanceSupport?.level==='strong'?'<span class="badge badge-green">STRONG P+E</span>':(x.performanceSupport?.level==='solid'?'<span class="badge badge-blue">SOLID P+E</span>':'')}
+          ${x.close?'<span class="badge">CLOSE RACE</span>':''}
+          <div class="metric-line">${safe(x.quality.text)}</div>
+        </div>`).join("") :
+        '<div class="warning-box"><b>No race qualifies as a Strong or Standard bet today.</b> Treat the remaining races as caution/pass rather than forcing a wager.</div>'}
+    </div>`;
+
+    $("bestSection").innerHTML = `
+
+        ${betRaceSummary}
+        <div class="bestof">
+
+            <h3>
+                Race Decision Board
+            </h3>
+
+            <p style="
+                font-size:12px;
+                color:var(--ink-soft);
+                line-height:1.5;
+            ">
+
+                The percentage is an uncalibrated relative model share, not a
+                proven win probability. Tap it for the horse's data quality and
+                interpretation. PASS is automatic only for specialty/jump-distance races, poor core-data
+                coverage, or fields with many first-time starters. Exact-condition
+                mismatches are warnings rather than a separate contradictory PASS. PRICE CANDIDATE means model rank #1 is morning-line
+                rank #3 or higher; it is a review flag, not a proven edge.
+                Tap the horse name to jump to that race's Full Field and open the horse's complete Past Performances.
+
+            </p>
+
+            ${bestHTML}
+
+        </div>
+
+    `;
+
+
+    $("cardSection").innerHTML = `
+        <h2>Full Race Cards</h2>
+        <p class="note"><b>FULL FIELD</b> keeps every runner. <b>LIVE FIELD</b> removes only horses that earned Pretender status from negative past-performance evidence. First-time starters and uncertain horses remain as Questionable.</p>
+        <div class="field-view-toggle"><button data-view="full" onclick="setRaceCardView('full')">FULL FIELD</button><button class="on" data-view="live" onclick="setRaceCardView('live')">LIVE FIELD — HIDE PRETENDERS</button></div>
+        <div id="fullFieldView" style="display:none">${cardHTML}</div>
+        <div id="liveFieldView">${liveCardHTML}</div>
+    `;
+
+
+    $("analysisSection").innerHTML = `
+
+        <h2>
+            Contenders / Questionable / Pretenders
+        </h2>
+
+        ${analysisHTML}
+
+    `;
+
+
+    buildH2H();
+
+
+    $("tabbar").style.display =
+        "flex";
+
+
+    showTab("best");
+
+}
+
+
+/* ============================================================
+   TABS
+============================================================ */
+
+function showTab(tab){
+
+    $("cardSection").style.display =
+        tab === "card"
+        ?
+        "block"
+        :
+        "none";
+
+    $("bestSection").style.display =
+        tab === "best"
+        ?
+        "block"
+        :
+        "none";
+
+    $("analysisSection").style.display =
+        tab === "analysis"
+        ?
+        "block"
+        :
+        "none";
+
+    document
+        .querySelectorAll(".tabbar button")
+        .forEach(button=>{
+
+            button.classList.toggle(
+                "on",
+                button.dataset.tab === tab
+            );
+
+        });
+
+}
+
+
+document
+    .querySelectorAll(".tabbar button")
+    .forEach(button=>{
+
+        button.addEventListener(
+            "click",
+            ()=>{
+                showTab(
+                    button.dataset.tab
+                );
+            }
+        );
+
+    });
+
+
+$("computeBtn").addEventListener(
+    "click",
+    computeRaceCard
+);
+
+
+/* ============================================================
+   H2H
+============================================================ */
+
+function h2hNorm(v){
+
+    return String(v || "")
+        .trim()
+        .replace(/[^0-9A-Za-z]/g,"")
+        .toUpperCase();
+
+}
+
+
+function h2hFinishNumber(v){
+
+    const n = parseInt(String(v || "").trim(),10);
+
+    return Number.isFinite(n) && n > 0
+        ? n
+        : null;
+
+}
+
+
+function h2hOrdinal(v){
+
+    const n = h2hFinishNumber(v);
+
+    if(n === null){
+        return safe(v || "?");
+    }
+
+    const mod100 = n % 100;
+    const mod10 = n % 10;
+
+    const suffix =
+        (mod100 >= 11 && mod100 <= 13)
+        ? "th"
+        :
+        (
+            mod10 === 1
+            ? "st"
+            :
+            mod10 === 2
+            ? "nd"
+            :
+            mod10 === 3
+            ? "rd"
+            :
+            "th"
+        );
+
+    return n + suffix;
+
+}
+
+
+function currentRaceH2HGroups(field){
+
+    const groups = new Map();
+
+    (field || []).forEach(horse=>{
+
+        (horse.ppRaces || []).forEach(pp=>{
+
+            const dateKey = h2hNorm(pp.date);
+            const raceKey = h2hNorm(pp.raceNum);
+
+            if(!dateKey || !raceKey){
+                return;
+            }
+
+            const key = dateKey + "|" + raceKey;
+
+            if(!groups.has(key)){
+                groups.set(
+                    key,
+                    {
+                        date:pp.date,
+                        raceNum:pp.raceNum,
+                        track:pp.track || "",
+                        dist:pp.dist || 0,
+                        raceClass:pp.raceClass || "",
+                        runners:[]
+                    }
+                );
+            }
+
+            groups.get(key).runners.push({
+                horse,
+                pp
+            });
+
+        });
+
+    });
+
+
+    return Array.from(groups.values())
+        .filter(g=>g.runners.length >= 2)
+        .map(g=>{
+
+            /*
+              A horse should appear only once in a grouped prior race.
+              This also protects the display from accidental duplicate PP rows.
+            */
+            const seen = new Set();
+
+            g.runners = g.runners.filter(item=>{
+
+                if(seen.has(item.horse.id)){
+                    return false;
+                }
+
+                seen.add(item.horse.id);
+                return true;
+
+            });
+
+            return g;
+
+        })
+        .filter(g=>g.runners.length >= 2)
+        .sort((a,b)=>{
+
+            const ad = String(a.date || "").replace(/\D/g,"");
+            const bd = String(b.date || "").replace(/\D/g,"");
+
+            if(ad !== bd){
+                return bd.localeCompare(ad);
+            }
+
+            return Number(b.raceNum || 0) - Number(a.raceNum || 0);
+
+        });
+
+}
+
+
+
+function h2hTroubleComment(comment){
+
+    const text = String(comment || "").trim();
+    if(!text) return false;
+
+    /*
+      Trouble language is intentionally display-only. It does not change
+      model score or classification; it simply prevents the chart trip
+      from being reduced to finish position alone.
+    */
+    const trouble = /\b(stead(?:ied|y)|check(?:ed|ing)?|blocked|no room|bump(?:ed|ing)?|stumbled?|stumble|broke slow(?:ly)?|slow start|off slow(?:ly)?|pinched|squeezed|clipped|heels?|shuffled|traffic|forced|carried|shut off|boxed|crowded|brushed|hit gate|dwelt|hesitated|awkward(?:ly)?|bobbl(?:ed|ing)|stopped|eased|pulled up|lost action|rank)\b/i;
+
+    return trouble.test(text);
+}
+
+function renderH2HChartComment(item){
+
+    const comment = String((item && item.pp && item.pp.comment) || "").trim();
+    const horseName = safe(item && item.horse ? item.horse.horse : "Horse");
+
+    if(!comment){
+        return `
+            <div class="h2h-stat" style="margin-top:4px;opacity:.72;">
+                <b>${horseName}:</b> no chart comment
+            </div>
+        `;
+    }
+
+    const trouble = h2hTroubleComment(comment);
+
+    return `
+        <div class="h2h-stat" style="
+            margin-top:4px;
+            ${trouble ? "color:#b00020;font-weight:700;" : ""}
+        ">
+            <b>${horseName}:</b> ${safe(comment)}
+        </div>
+    `;
+}
+
+function h2hMarginBetween(a,b){
+
+    const aLen = number(a && a.pp ? a.pp.beatenLengths : 0);
+    const bLen = number(b && b.pp ? b.pp.beatenLengths : 0);
+
+    if(!Number.isFinite(aLen) || !Number.isFinite(bLen)) return null;
+
+    const diff = Math.abs(bLen - aLen);
+    if(!(diff > 0)) return null;
+
+    return Math.round(diff * 100) / 100;
+}
+
+function formatH2HLengths(value){
+
+    const n = number(value);
+    if(!(n > 0)) return "";
+
+    const rounded = Math.round(n * 100) / 100;
+    return (Number.isInteger(rounded) ? rounded.toFixed(0) : String(rounded)) + "L";
+}
+
+function renderH2HGroup(group){
+
+    const ordered = [...group.runners].sort((a,b)=>{
+
+        const af = h2hFinishNumber(a.pp.fin);
+        const bf = h2hFinishNumber(b.pp.fin);
+
+        if(af === null && bf === null) return 0;
+        if(af === null) return 1;
+        if(bf === null) return -1;
+
+        return af - bf;
+
+    });
+
+
+    let relationshipLines = [];
+
+    ordered.forEach((a,i)=>{
+
+        const af = h2hFinishNumber(a.pp.fin);
+
+        if(af === null){
+            return;
+        }
+
+        ordered.forEach((b,j)=>{
+
+            if(i === j){
+                return;
+            }
+
+            const bf = h2hFinishNumber(b.pp.fin);
+
+            if(bf !== null && af < bf){
+
+                const margin = h2hMarginBetween(a,b);
+                const marginText = margin ? ` by ${formatH2HLengths(margin)}` : "";
+
+                relationshipLines.push(`
+                    <div class="h2h-stat" style="margin-top:5px;">
+                        <b>${safe(a.horse.horse)} (${h2hOrdinal(a.pp.fin)})</b>
+                        beat${marginText}
+                        <b>${safe(b.horse.horse)} (${h2hOrdinal(b.pp.fin)})</b>
+                    </div>
+                `);
+            }
+
+        });
+
+    });
+
+
+    const finishRows = ordered.map(item=>`
+
+        <div class="h2h-stat" style="
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            border-bottom:1px solid var(--paper-line);
+            padding:5px 0;
+        ">
+
+            <span>
+                #${safe(item.horse.post)}
+                <b>${safe(item.horse.horse)}</b>
+            </span>
+
+            <span>
+                <b>${h2hOrdinal(item.pp.fin)}</b>
+                ${number(item.pp.beatenLengths) > 0 ? ` · ${safe(formatH2HLengths(item.pp.beatenLengths))} back` : ""}
+            </span>
+
+        </div>
+
+    `).join("");
+
+
+    const chartComments = ordered.map(renderH2HChartComment).join("");
+
+    const meetingMeta = [
+        group.track ? safe(group.track) : "",
+        group.raceNum ? `R${safe(group.raceNum)}` : "",
+        group.dist ? safe(formatDistance(group.dist)) : "",
+        group.raceClass ? safe(group.raceClass) : ""
+    ].filter(Boolean).join(" · ");
+
+
+    return `
+
+        <div class="h2h-card" style="margin-bottom:12px;">
+
+            <h3>
+                Previous Direct Meeting —
+                ${safe(formatDate(group.date))}
+                ${meetingMeta ? " · " + meetingMeta : ""}
+            </h3>
+
+            ${finishRows}
+
+            <div style="
+                margin-top:9px;
+                padding-top:7px;
+                border-top:2px solid var(--paper-line);
+            ">
+
+                ${
+                    relationshipLines.length
+                    ?
+                    relationshipLines.join("")
+                    :
+                    `
+                    <div class="h2h-stat">
+                        Prior meeting found, but no beat relationship is inferred
+                        from tied or non-numeric finish positions.
+                    </div>
+                    `
+                }
+
+                <div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--paper-line);">
+                    ${chartComments}
+                </div>
+
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+function buildH2H(){
+    // H2H now renders inline inside Contenders / Pretenders.
+}
+
+
+function renderH2H(){
+
+    const race =
+        $("h2hRace")
+        ?
+        $("h2hRace").value
+        :
+        "";
+
+
+    const field =
+        rows.filter(
+            r=>
+            r.horse &&
+            !r.scratched &&
+            String(r.race) === String(race)
+        );
+
+
+    const groups =
+        currentRaceH2HGroups(field);
+
+
+    if(!groups.length){
+
+        $("h2hComparison").innerHTML = `
+
+            <div class="h2h-card">
+
+                <h3>
+                    Race ${safe(race)}
+                </h3>
+
+                <div class="h2h-stat">
+                    No previous direct meeting was found among today's runners
+                    using the same prior race date + prior race number.
+                </div>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    $("h2hComparison").innerHTML = `
+
+        <div class="h2h-stat" style="margin-bottom:10px;">
+
+            <b>
+                ${groups.length}
+                previous direct
+                ${groups.length === 1 ? "meeting" : "meetings"}
+                found for Race ${safe(race)}
+            </b>
+
+        </div>
+
+        ${
+            groups
+            .map(renderH2HGroup)
+            .join("")
+        }
+
+    `;
+
+}
+
+
+
+function renderInlineRaceH2H(activeField){
+
+    const groups = currentRaceH2HGroups(activeField);
+
+    if(!groups.length){
+        return "";
+    }
+
+    return `
+        <div style="grid-column:1/-1;margin-top:12px;">
+            <div class="h2h-card">
+
+                <h3>Previous Direct Meetings</h3>
+
+                <div class="h2h-stat" style="margin-bottom:8px;">
+                    <b>
+                        ${groups.length}
+                        prior direct
+                        ${groups.length === 1 ? "meeting" : "meetings"}
+                        found among today's runners.
+                    </b>
+                </div>
+
+                ${groups.map(renderH2HGroup).join("")}
+
+            </div>
+        </div>
+    `;
+}
+
+
+function formatRecordMoney(v){
+    const n=number(v);
+    if(!n) return "$0";
+    return "$" + Math.round(n).toLocaleString();
+}
+
+function totalTurfRecordHTML(horse, compact=false){
+    if(!horse) return "";
+    const total = `${horse.starts || 0}-${horse.wins || 0}-${horse.places || 0}-${horse.shows || 0}`;
+    const turf = `${horse.turfStarts || 0}-${horse.turfWins || 0}-${horse.turfPlaces || 0}-${horse.turfShows || 0}`;
+    const wet = `${horse.wetStarts || 0}-${horse.wetWins || 0}-${horse.wetPlaces || 0}-${horse.wetShows || 0}`;
+    const totalMoney = formatRecordMoney(horse.careerEarnings);
+    const turfMoney = formatRecordMoney(horse.turfEarnings);
+    const wetMoney = formatRecordMoney(horse.wetEarnings);
+    if(compact){
+        return `Total <b>${total}</b> · ${totalMoney}<br>Turf <b>${turf}</b> · ${turfMoney}<br>Off track <b>${wet}</b> · ${wetMoney}`;
+    }
+    return `
+        <div class="h2h-stat">
+            Total record: <b>${total}</b> &nbsp; Earnings: <b>${totalMoney}</b>
+        </div>
+        <div class="h2h-stat">
+            Turf record: <b>${turf}</b> &nbsp; Turf earnings: <b>${turfMoney}</b>
+        </div>
+        <div class="h2h-stat">
+            Off-track record: <b>${wet}</b> &nbsp; Off-track earnings: <b>${wetMoney}</b>
+        </div>
+    `;
+}
+
+function renderH2HHorse(horse){
+
+    if(!horse){
+
+        return `
+            <div class="h2h-card">
+                Select a horse.
+            </div>
+        `;
+
+    }
+
+
+    return `
+
+    <div class="h2h-card">
+
+        <h3>
+            #${safe(horse.post)}
+            ${safe(horse.horse)}
+        </h3>
+
+        <div class="h2h-stat">
+
+            Prime Power:
+            <b>
+                ${safe(
+                    horse.score ||
+                    horse.primePower ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Current Speed:
+            <b>
+                ${safe(
+                    horse.lastSpeed ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Best Speed:
+            <b>
+                ${safe(
+                    horse.bestSpeed ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            M/L:
+            <b>
+                ${safe(
+                    horse.odds ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        ${totalTurfRecordHTML(horse)}
+
+        <div class="h2h-stat">
+
+            Trainer:
+            <b>
+                ${safe(
+                    horse.trainer ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div class="h2h-stat">
+
+            Jockey:
+            <b>
+                ${safe(
+                    horse.jockey ||
+                    "N/A"
+                )}
+            </b>
+
+        </div>
+
+        <div style="
+            margin-top:10px;
+            font-size:10px;
+            font-weight:800;
+            font-family:var(--mono);
+            text-transform:uppercase;
+        ">
+
+            Recent PP Lines
+
+        </div>
+
+        <table class="pp-table">
+
+        <thead>
+
+        <tr>
+
+            <th>Date</th>
+            <th>Track</th>
+            <th>Dist</th>
+            <th>Finish</th>
+            <th>Speed</th>
+
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        ${
+            (horse.ppRaces || [])
+            .slice(0,5)
+            .map(p=>`
+
+            <tr>
+
+                <td>
+                    ${safe(p.date)}
+                </td>
+
+                <td>
+                    ${safe(p.track)}
+                </td>
+
+                <td>
+                    ${safe(
+                        formatDistance(
+                            p.dist
+                        )
+                    )}
+                </td>
+
+                <td>
+                    ${safe(p.fin)}
+                </td>
+
+                <td>
+                    <b>
+                        ${safe(p.speed)}
+                    </b>
+                </td>
+
+            </tr>
+
+            `)
+            .join("")
+        }
+
+        </tbody>
+
+        </table>
+
+    </div>
+
+    `;
+
+}
+
+
+/* ============================================================
+   PP MODAL
+============================================================ */
+
+function ppSamePriorRace(a,b){
+    return h2hNorm(a && a.date) === h2hNorm(b && b.date) &&
+           h2hNorm(a && a.raceNum) === h2hNorm(b && b.raceNum);
+}
+
+function ppTodayRunnerByName(name,horse){
+    const key = normalizeName(name || "");
+    if(!key) return null;
+
+    return rows.find(r=>
+        !r.scratched &&
+        String(r.race) === String(horse.race) &&
+        normalizeName(r.horse) === key
+    ) || null;
+}
+
+function ppHorseBeatCurrentRunner(namedHorse,pp,horse){
+    const named = ppTodayRunnerByName(namedHorse,horse);
+    if(!named) return false;
+
+    const namedPrior = (named.ppRaces || []).find(otherPP=>ppSamePriorRace(pp,otherPP));
+    if(!namedPrior) return false;
+
+    const namedFinish = h2hFinishNumber(namedPrior.fin);
+    if(namedFinish === null) return false;
+
+    return rows.some(other=>{
+        if(other.scratched || String(other.race) !== String(horse.race) || other.id === named.id){
+            return false;
+        }
+        const otherPrior = (other.ppRaces || []).find(otherPP=>ppSamePriorRace(pp,otherPP));
+        if(!otherPrior) return false;
+        const otherFinish = h2hFinishNumber(otherPrior.fin);
+        return otherFinish !== null && namedFinish < otherFinish;
+    });
+}
+
+function renderPPFinisher(name,pp,horse,label){
+    const value=String(name||"").trim();
+    if(!value) return '<span style="opacity:.55">-</span>';
+
+    const named=ppTodayRunnerByName(value,horse);
+    const isToday=!!named;
+    const beatToday=isToday && ppHorseBeatCurrentRunner(value,pp,horse);
+
+    let isContender=false;
+    if(named){
+        const raceField=rows.filter(r=>!r.scratched && String(r.race)===String(horse.race));
+        if(raceField.length>=2){
+            const result=currentRaceClassificationMap(raceField);
+            isContender=!!(result.map[named.id] && result.map[named.id].label==="CONTENDER");
+        }
+    }
+
+    const rendered=safe(value);
+    if(beatToday){
+        return `<strong class="pp-h2h-beater" title="H2H: this horse beat another runner entered in today’s race">${rendered}</strong>`;
+    }
+    if(isContender){
+        return `<strong class="pp-current-contender" title="Contender in today’s race">${rendered}</strong>`;
+    }
+    if(isToday){
+        return `<span class="pp-current-runner" title="Also entered in today’s race">${rendered}</span>`;
+    }
+    return rendered;
+}
+
+function renderContenderPastPerformances(horse){
+    const races=(horse.ppRaces || []);
+    if(!races.length){
+        return `<div class="note" style="margin-top:8px;">No usable past-performance races available.</div>`;
+    }
+
+    return `
+    <div style="margin-top:10px;font-weight:800;font-size:11px;text-transform:uppercase;">Full Past Performances</div>
+    <div class="table-wrap" style="margin-top:6px;">
+      <table class="pp-table">
+        <thead><tr>
+          <th>Date</th><th>Track</th><th>Race</th><th>Distance</th><th>Surface</th><th>Post</th><th>Finish</th><th>Win</th><th>Place</th><th>Show</th><th>Speed</th><th>Class</th><th>Comment</th>
+        </tr></thead>
+        <tbody>
+          ${races.map(p=>`
+            <tr>
+              <td>${safe(formatDate(p.date))}</td>
+              <td>${safe(p.track)}</td>
+              <td>${safe(p.raceNum)}</td>
+              <td>${safe(formatDistance(p.dist))}</td>
+              <td>${safe(p.surf)}</td>
+              <td>${safe(p.post)}</td>
+              <td>${ppClassLadderHTML(p,horse)}</td>
+              <td>${safe(p.fin)}</td>
+              <td>${renderPPFinisher(p.winner,p,horse,"Win")}</td>
+              <td>${renderPPFinisher(p.placeHorse,p,horse,"Place")}</td>
+              <td>${renderPPFinisher(p.showHorse,p,horse,"Show")}</td>
+              <td><b>${safe(p.speed)}</b></td>
+              <td>${safe(p.raceClass || "-")}</td>
+              <td>${safe(p.comment)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openPP(id){
+
+    const horse =
+        rows.find(
+            r=>r.id == id
+        );
+
+    if(!horse){
+        return;
+    }
+
+
+    $("ppContent").innerHTML = `
+
+    <h2 style="
+        margin-right:30px;
+        font-size:20px;
+    ">
+
+        #${safe(horse.post)}
+        ${safe(horse.horse)}
+
+        ${
+            horse.scratched
+            ?
+            '<span class="badge badge-red">SCRATCHED</span>'
+            :
+            ""
+        }
+
+        ${
+            horse.jockeyChanged
+            ?
+            '<span class="badge badge-red">JOCKEY CHANGED</span>'
+            :
+            ""
+        }
+
+    </h2>
+
+
+    <div style="
+        font-family:var(--mono);
+        font-size:11px;
+        line-height:1.7;
+        margin-bottom:15px;
+    ">
+
+        Prime Power:
+        <b>
+            ${safe(
+                horse.score ||
+                horse.primePower ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Current Speed:
+        <b>
+            ${safe(
+                horse.lastSpeed ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Best Speed:
+        <b>
+            ${safe(
+                horse.bestSpeed ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Trainer:
+        <b>
+            ${safe(
+                horse.trainer ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Jockey:
+        <b>
+            ${safe(
+                horse.jockey ||
+                "N/A"
+            )}
+        </b>
+
+        <br>
+
+        Record / earnings:
+        <br>
+        ${totalTurfRecordHTML(horse, true)}
+
+    </div>
+
+
+    <div style="
+        font-weight:800;
+        font-size:11px;
+        text-transform:uppercase;
+        margin-bottom:6px;
+    ">
+
+        Past Performances
+
+    </div>
+
+    <div class="note" style="margin:-2px 0 8px;">
+        Total and turf records are kept separate above so a horse's overall W/P/S and earnings are not confused with its turf-only record. Win / Place / Show names are shown for each prior race. <b>Bold names</b> identify a horse entered today that beat another current runner in that same prior race (matched by date + race number).
+    </div>
+
+
+    <div class="table-wrap">
+
+    <table class="pp-table">
+
+    <thead>
+
+    <tr>
+
+        <th>Date</th>
+        <th>Track</th>
+        <th>Race</th>
+        <th>Distance</th>
+        <th>Surface</th>
+        <th>Post</th>
+        <th>Finish</th>
+        <th>Win</th>
+        <th>Place</th>
+        <th>Show</th>
+        <th>Speed</th>
+        <th>Class</th>
+        <th>Comment</th>
+
+    </tr>
+
+    </thead>
+
+    <tbody>
+
+    ${
+        (horse.ppRaces || [])
+        .map(p=>`
+
+        <tr>
+
+            <td>
+                ${safe(
+                    formatDate(p.date)
+                )}
+            </td>
+
+            <td>
+                ${safe(p.track)}
+            </td>
+
+            <td>
+                ${safe(p.raceNum)}
+            </td>
+
+            <td>
+                ${safe(
+                    formatDistance(
+                        p.dist
+                    )
+                )}
+            </td>
+
+            <td>
+                ${safe(p.surf)}
+            </td>
+
+            <td>
+                ${safe(p.post)}
+            </td>
+
+            <td>
+                ${safe(p.fin)}
+            </td>
+
+            <td>
+                ${renderPPFinisher(p.winner,p,horse,"Win")}
+            </td>
+
+            <td>
+                ${renderPPFinisher(p.placeHorse,p,horse,"Place")}
+            </td>
+
+            <td>
+                ${renderPPFinisher(p.showHorse,p,horse,"Show")}
+            </td>
+
+            <td>
+                <b>
+                    ${safe(p.speed)}
+                </b>
+            </td>
+
+            <td>
+                ${safe(p.raceClass || "-")}
+            </td>
+
+            <td>
+                ${safe(p.comment)}
+            </td>
+
+        </tr>
+
+        `)
+        .join("")
+    }
+
+    </tbody>
+
+    </table>
+
+    </div>
+
+
+    <div style="
+        margin-top:18px;
+        font-weight:800;
+        font-size:11px;
+        text-transform:uppercase;
+    ">
+
+        Recent Workouts — up to 4 within 30 days of race
+
+    </div>
+
+
+    <div class="work-grid">
+
+    ${
+        eligibleWorkouts(horse)
+        .map(w=>`
+
+        <div class="work-item">
+
+            <b>
+                ${safe(w.date)}
+            </b>
+
+            —
+            ${safe(w.track)}
+
+            <br>
+
+            Time:
+            <b>
+                ${safe(w.time || "N/A")}
+            </b>
+
+            ${
+                w.description
+                ?
+                " ("+
+                safe(w.description)+
+                ")"
+                :
+                ""
+            }
+
+        </div>
+
+        `)
+        .join("")
+    }
+
+    </div>
+
+    `;
+
+
+    $("ppOverlay")
+        .classList.add("show");
+
+}
+
+
+function closePP(){
+
+    $("ppOverlay")
+        .classList.remove("show");
+
+}
+
+
+$("ppCloseBtn")
+    .addEventListener(
+        "click",
+        closePP
+    );
+
+
+/*
+Close when tapping outside modal.
+*/
+
+$("ppOverlay")
+    .addEventListener(
+        "click",
+        event=>{
+
+            if(
+                event.target ===
+                $("ppOverlay")
+            ){
+
+                closePP();
+
+            }
+
+        }
+    );
+
+
+/* ============================================================
+   INITIALIZE
+============================================================ */
+
+renderRows();
+
+</script>
+
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.19 · iPhone/Safari build 2026-09-07</div>
+</body>
+</html>
