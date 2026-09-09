@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.28 · September 8, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.27 · September 8, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.28</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.26</span></h1>
 <p class="tagline">
-BRIS Single File + native 4-file Multi-PP parser (.DRF/.DR2/.DR3/.DR4) with the same Horse Handicap engine. Multi-PP now preserves turf/wet records, run style, Quirin speed points, workouts, surface-specific Best Speed, Prime Power, and full recent past performances instead of relying on a partial conversion. Built for iPhone/Safari. Existing Single File, RSS, H2H, PP, class-fit, pace and surface-change behavior is preserved.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.27 adds an automatic frozen Claude-rule cross-check + Signal Consensus test while preserving v7.25 entry-level logic. The question is no longer just who is #1: it shows whether Prime Power, Last Speed, Best Speed and Avg-3 Speed agree, and lets you select a Claude/other pick to mark MODEL AGREEMENT or MODEL DISAGREEMENT. v7.25 strengthened the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -1560,8 +1560,8 @@ function formatDistance(value){
 
 
 /* ============================================================
-   FILE READER + BRIS SINGLE-FILE / MULTI-PP PARSER
-   BRIS Single File and Multi-PP are comma-delimited text databases.
+   FILE READER + BRIS SINGLE-FILE PARSER
+   BRIS Single File is a comma-delimited text database.
    This reader also detects ZIP files because BRIS software
    datafiles are commonly delivered compressed.
 ============================================================ */
@@ -1653,172 +1653,6 @@ async function extractZipSingleFile(bytes){
     throw new Error("ZIP compression method " + method + " is not supported by Safari. Extract the BRIS data file in Files and select the extracted .DRF file.");
 }
 
-
-async function extractZipEntries(bytes){
-    const dv = new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-    if(bytes.length<30 || dv.getUint32(0,true)!==0x04034b50){
-        throw new Error("ZIP file was not recognized.");
-    }
-    let eocd=-1;
-    const min=Math.max(0,bytes.length-65557);
-    for(let i=bytes.length-22;i>=min;i--){
-        if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; }
-    }
-    if(eocd<0) throw new Error("ZIP directory was not found.");
-    const entryCount=dv.getUint16(eocd+10,true);
-    const centralOffset=dv.getUint32(eocd+16,true);
-    const entries=[];
-    let cursor=centralOffset;
-    for(let i=0;i<entryCount && cursor+46<=bytes.length;i++){
-        if(dv.getUint32(cursor,true)!==0x02014b50) break;
-        const method=dv.getUint16(cursor+10,true);
-        const compressedSize=dv.getUint32(cursor+20,true);
-        const fileNameLen=dv.getUint16(cursor+28,true);
-        const extraLen=dv.getUint16(cursor+30,true);
-        const commentLen=dv.getUint16(cursor+32,true);
-        const localOffset=dv.getUint32(cursor+42,true);
-        const name=new TextDecoder("utf-8").decode(bytes.slice(cursor+46,cursor+46+fileNameLen));
-        if(name && !name.endsWith("/")) entries.push({name,method,compressedSize,localOffset});
-        cursor += 46+fileNameLen+extraLen+commentLen;
-    }
-    const result={};
-    for(const e of entries){
-        if(e.localOffset+30>bytes.length || dv.getUint32(e.localOffset,true)!==0x04034b50) continue;
-        const nlen=dv.getUint16(e.localOffset+26,true);
-        const xlen=dv.getUint16(e.localOffset+28,true);
-        const start=e.localOffset+30+nlen+xlen;
-        const compressed=bytes.slice(start,start+e.compressedSize);
-        let raw;
-        if(e.method===0) raw=compressed;
-        else if(e.method===8) raw=await inflateRaw(compressed);
-        else continue;
-        result[e.name]=decodeBytes(raw).replace(/^\uFEFF/,"");
-    }
-    return result;
-}
-
-function multiKey(track,date,race,post){
-    return [track,date,race,post].map(v=>String(v||"").trim()).join("|");
-}
-
-function loadMultiPP(entryMap){
-    try{
-        const names=Object.keys(entryMap||{});
-        const findExt=ext=>names.find(n=>n.toUpperCase().endsWith(ext));
-        const n1=findExt('.DRF'), n2=findExt('.DR2'), n3=findExt('.DR3'), n4=findExt('.DR4');
-        if(!n1 || !n2 || !n3 || !n4) throw new Error("A BRIS Multi-PP ZIP must contain matching .DRF, .DR2, .DR3 and .DR4 files.");
-
-        const r1=parseCSVRecords(entryMap[n1],',');
-        const r2=parseCSVRecords(entryMap[n2],',');
-        const r3=parseCSVRecords(entryMap[n3],',');
-        const r4=parseCSVRecords(entryMap[n4],',');
-        if(!r1.length || !r2.length) throw new Error("The Multi-PP files contain no readable race/horse records.");
-
-        const raceMap=new Map();
-        r1.forEach(f=>raceMap.set(multiKey(getField(f,1),getField(f,2),getField(f,3),''),f));
-        const ppMap=new Map();
-        r3.forEach(f=>{
-            const k=multiKey(getField(f,1),getField(f,2),getField(f,3),getField(f,4));
-            if(!ppMap.has(k)) ppMap.set(k,[]);
-            ppMap.get(k).push(f);
-        });
-        const ratingMap=new Map();
-        r4.forEach(f=>ratingMap.set(multiKey(getField(f,1),getField(f,2),getField(f,3),getField(f,4)),f));
-
-        const newRows=[];
-        r2.forEach(h=>{
-            const track=getField(h,1), date=getField(h,2), race=getField(h,3), post=getField(h,4);
-            const rf=raceMap.get(multiKey(track,date,race,'')) || [];
-            const ppRows=ppMap.get(multiKey(track,date,race,post)) || [];
-            const rr=ratingMap.get(multiKey(track,date,race,post)) || [];
-            const horse=getField(h,24);
-            if(!horse) return;
-
-            const ppRaces=ppRows.slice(0,10).map(p=>({
-                date:getField(p,5),
-                track:getField(p,8) || getField(p,7),
-                raceNum:getField(p,9),
-                trackCondition:getField(p,10),
-                dist:getNumber(p,11),
-                surf:getField(p,12),
-                entrants:getNumber(p,14),
-                post:getField(p,15),
-                fin:getField(p,41),
-                beatenLengths:getNumber(p,54),
-                speed:getNumber(p,64),
-                pace2:getNumber(p,56),
-                pace4:getNumber(p,57),
-                pace6:getNumber(p,58),
-                pace8:getNumber(p,59),
-                latePace:getNumber(p,61),
-                raceClass:getField(p,33),
-                claimingPrice:getNumber(p,34),
-                purse:getNumber(p,35),
-                classRating:0,
-                raceRating:0,
-                comment:getField(p,19) || getField(p,107),
-                winner:getField(p,20),
-                placeHorse:getField(p,21),
-                showHorse:getField(p,22)
-            }));
-
-            const ppWorks=[];
-            for(let i=0;i<12;i++){
-                const wd=getField(h,81+i);
-                if(!wd || wd==='0') continue;
-                ppWorks.push({
-                    date:formatDate(wd),
-                    time:getField(h,93+i),
-                    track:getField(h,105+i),
-                    distance:getNumber(h,117+i),
-                    condition:getField(h,129+i),
-                    description:getField(h,141+i)
-                });
-            }
-
-            const lastSpeed=ppRaces.length ? number(ppRaces[0].speed) : 0;
-            const raceClassLabel=getField(rf,9) || getField(rf,7) || '';
-            newRows.push(newRow({
-                race:race || '1', post:post || '1', horse,
-                odds:getField(h,202),
-                trainer:getField(h,7), trainerStarts:getNumber(h,8), trainerWins:getNumber(h,9), trainerPlaces:getNumber(h,10), trainerShows:getNumber(h,11),
-                jockey:getField(h,12), origJockey:getField(h,12), jockeyStarts:getNumber(h,14), jockeyWins:getNumber(h,15), jockeyPlaces:getNumber(h,16), jockeyShows:getNumber(h,17),
-                turfStarts:getNumber(h,54), turfWins:getNumber(h,55), turfPlaces:getNumber(h,56), turfShows:getNumber(h,57), turfEarnings:getNumber(h,58),
-                wetStarts:getNumber(h,59), wetWins:getNumber(h,60), wetPlaces:getNumber(h,61), wetShows:getNumber(h,62), wetEarnings:getNumber(h,63),
-                starts:getNumber(h,76), wins:getNumber(h,77), places:getNumber(h,78), shows:getNumber(h,79), careerEarnings:getNumber(h,80),
-                allWeatherStarts:getNumber(h,210), allWeatherWins:getNumber(h,211), allWeatherPlaces:getNumber(h,212), allWeatherShows:getNumber(h,213), allWeatherEarnings:getNumber(h,214),
-                currentTrack:track, currentRaceDate:formatDate(date),
-                currentSurface:getField(rf,5), originalSurface:getField(rf,5), surfaceChanged:false, surfaceChangeText:'', currentTrackCondition:'',
-                currentDistance:getNumber(rf,4), raceType:getField(rf,7), ageSex:getField(rf,8), currentRaceClass:raceClassLabel,
-                raceConditions:getField(rf,13), purse:getNumber(rf,10), claimingPrice:getNumber(h,6) || getNumber(rf,11),
-                runStyle:getField(h,189), speedPoints:getNumber(h,190), daysSinceLast:getNumber(h,203),
-                lastSpeed,
-                bestSpeed:getNumber(rr,10), bestSpeedLife:getNumber(rr,10), bestSpeedTrack:getNumber(rr,13),
-                bestSpeedDistance:getNumber(h,232), bestSpeedFast:getNumber(h,229), bestSpeedTurf:getNumber(h,230), bestSpeedOff:getNumber(h,231),
-                bestSpeedAllWeather:getNumber(h,215),
-                primePower:getNumber(rr,5), score:getNumber(rr,5),
-                ppRaces, ppWorks,
-                multiPP:true
-            }));
-        });
-        if(!newRows.length) throw new Error("No horse records could be assembled from the Multi-PP files.");
-        rows=newRows;
-        renderRows();
-        const races=new Set(rows.map(r=>r.race)).size;
-        const maxFields=Math.max(...r1.map(r=>r.length),...r2.map(r=>r.length),...r3.map(r=>r.length),...r4.map(r=>r.length));
-        $('drfMetaBox').classList.add('show');
-        $('drfRecords').textContent=r1.length+r2.length+r3.length+r4.length;
-        $('drfFields').textContent=maxFields+' / file';
-        $('drfRunners').textContent=rows.length;
-        $('drfRaces').textContent=races;
-        $('drfStatus').className='status ok';
-        $('drfStatus').textContent='✓ Loaded '+rows.length+' runners / '+races+' races. BRIS Multi-PP 4-file format confirmed (.DRF + .DR2 + .DR3 + .DR4).';
-    }catch(error){
-        $('drfStatus').className='status err';
-        $('drfStatus').textContent='BRIS MULTI-PP ERROR: '+error.message;
-    }
-}
-
 function fileBytes(file){
     if(file && typeof file.arrayBuffer==="function"){
         return file.arrayBuffer().then(buffer=>new Uint8Array(buffer));
@@ -1838,13 +1672,8 @@ async function readTextFile(file){
         throw new Error("The selected file is empty or too small to be a BRIS data file.");
     }
 
-    // ZIP signature: PK.. — detect BRIS Multi-PP before falling back to Single File.
+    // ZIP signature: PK..
     if(bytes[0]===0x50 && bytes[1]===0x4b && bytes[2]===0x03 && bytes[3]===0x04){
-        const entries=await extractZipEntries(bytes);
-        const names=Object.keys(entries).map(n=>n.toUpperCase());
-        if(names.some(n=>n.endsWith('.DRF')) && names.some(n=>n.endsWith('.DR2')) && names.some(n=>n.endsWith('.DR3')) && names.some(n=>n.endsWith('.DR4'))){
-            return {name:(file.name||'BRIS ZIP')+' — Multi-PP',multiEntries:entries};
-        }
         return await extractZipSingleFile(bytes);
     }
 
@@ -2135,11 +1964,7 @@ $("drfInput").addEventListener("change",async event=>{
             $("drfStatus").textContent =
                 "Unzipped " + result.name + " — parsing…";
         }
-        if(result.multiEntries){
-            loadMultiPP(result.multiEntries);
-        }else{
-            loadDRF(result.text);
-        }
+        loadDRF(result.text);
     }catch(err){
         $("drfStatus").className = "status err";
         $("drfStatus").textContent = "BRIS FILE ERROR: " + err.message;
@@ -2923,7 +2748,7 @@ function surfaceBestSpeed(horse){
     const g=surfaceGroup(horse.currentSurface);
     const cond=conditionGroup(horse.currentTrackCondition);
 
-    // v7.27 TURF PROOF FIX:
+    // v7.25 TURF PROOF FIX:
     // A dirt/lifetime figure is not a turf figure. In a turf race an unproven
     // turf horse gets no substitute Best Speed credit from another surface.
     if(g==="T") return number(horse.bestSpeedTurf);
@@ -3725,6 +3550,65 @@ function isFirstTimeStarterForQuality(h){
     return usable.length===0;
 }
 
+// v7.27 — SIGNAL CONSENSUS + AUTOMATIC FROZEN CLAUDE RULE
+function signalConsensus(field, horse){
+    const active=(field||[]).filter(h=>!h.scratched);
+    const tests=[
+      ['Prime Power', h=>number(h.score || h.primePower)],
+      ['Last Speed', h=>number(h.lastSpeed)],
+      ['Best Speed', h=>number(surfaceBestSpeed(h) || h.bestSpeed)],
+      ['Avg-3 Speed', avg3RaceSpeed]
+    ];
+    let wins=0, usable=0, details=[];
+    tests.forEach(([name,fn])=>{
+      const r=rankValue(horse,active,fn);
+      if(r.count>=3 && r.rank!==null){
+        usable++;
+        if(r.rank===1){wins++; details.push(name+' #1'+(r.tied?' tied':''));}
+        else details.push(name+' #'+r.rank);
+      } else details.push(name+' N/A');
+    });
+    const fts=active.filter(isFirstTimeStarterForQuality).length;
+    let level='uncertain', label='HIGH UNCERTAINTY';
+    if(usable>=3 && wins>=3){level='high';label='HIGH CONSENSUS';}
+    else if(usable>=3 && wins===2){level='mixed';label='MIXED SIGNALS';}
+    if(fts>0 && active.length>=10 && level==='high'){level='mixed';label='MIXED — FIELD RISK';}
+    return {level,label,wins,usable,details,fts,fieldSize:active.length};
+}
+function consensusBadgeHTML(field,horse){
+    const c=signalConsensus(field,horse);
+    const cls=c.level==='high'?'badge-green':(c.level==='mixed'?'badge-blue':'badge-red');
+    return `<span class="badge ${cls}">${safe(c.label)} · ${c.wins}/${c.usable}</span>`;
+}
+
+// Frozen before results: Claude PICK = morning-line favorite, M/L <= 5/2,
+// #1 career earnings/start, AND sole #1 Best Speed. No result-based tuning.
+function frozenClaudePick(field){
+    const active=(field||[]).filter(h=>!h.scratched);
+    const market=active.filter(h=>oddsDecimal(h.odds)!==null).sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+    if(!market.length) return {horse:null,reason:'No usable morning line'};
+    const favOdds=oddsDecimal(market[0].odds);
+    const candidates=market.filter(h=>Math.abs(oddsDecimal(h.odds)-favOdds)<1e-9);
+    for(const h of candidates){
+        const ce=rankValue(h,active,careerEPS);
+        const bs=rankValue(h,active,x=>number(surfaceBestSpeed(x) || x.bestSpeed));
+        const short=favOdds<=2.5;
+        const earnTop=ce.count>=3 && ce.rank===1;
+        const soleBest=bs.count>=3 && bs.rank===1 && !bs.tied;
+        if(short && earnTop && soleBest) return {horse:h,odds:favOdds,ce,bs,reason:'M/L favorite ≤5/2 + #1 earnings/start + sole #1 Best Speed'};
+    }
+    return {horse:null,odds:favOdds,reason:'No horse passes all frozen Claude-rule gates'};
+}
+function automaticComparisonHTML(raceNum,field,modelHorse){
+    const c=frozenClaudePick(field);
+    const sc=signalConsensus(field,modelHorse);
+    if(!c.horse){
+      return `<div class="warning-box" style="margin-top:8px"><b>3-WAY CROSS-CHECK</b><div style="margin-top:5px"><b>Horse Handicap:</b> #${safe(modelHorse.post)} ${safe(modelHorse.horse)}</div><div><b>Claude Rule:</b> NO PICK</div><div><b>Signal Consensus:</b> ${safe(sc.label)} (${sc.wins}/${sc.usable})</div><span class="badge badge-red">UNRESOLVED / TEST RACE</span> Claude's frozen rule does not confirm the model leader. Track the result; do not force agreement.</div>`;
+    }
+    const agree=String(c.horse.id)===String(modelHorse.id);
+    return `<div class="warning-box" style="margin-top:8px"><b>3-WAY CROSS-CHECK</b><div style="margin-top:5px"><b>Horse Handicap:</b> #${safe(modelHorse.post)} ${safe(modelHorse.horse)}</div><div><b>Claude Rule:</b> #${safe(c.horse.post)} ${safe(c.horse.horse)} — ${safe(c.reason)}</div><div><b>Signal Consensus:</b> ${safe(sc.label)} (${sc.wins}/${sc.usable})</div>${agree?'<span class="badge badge-green">MAX AGREEMENT</span> Independent methods point to the same horse.':'<span class="badge badge-red">MODEL DISAGREEMENT</span> Treat as uncertainty and track the result.'}</div>`;
+}
+
 function raceBetQuality(field, modelTopHorse){
     const active=(field || []).filter(h=>!h.scratched);
     const support=performanceEarningsSupport(active,modelTopHorse);
@@ -3744,7 +3628,7 @@ function raceBetQuality(field, modelTopHorse){
             text:'Performance and earnings evidence is too thin or too mixed to upgrade this race.'};
     }
 
-    // v7.27: Recent Speed Confirmed can strengthen a race, but cannot by itself
+    // v7.25: Recent Speed Confirmed can strengthen a race, but cannot by itself
     // manufacture a STRONG bet. It needs class/surface proof and P+E support.
     if(recentConfirm.confirmed && ftsCount===0 && fieldSize<=9 && supportOK && surfaceOK && (classOK || lightlyRacedWinner)){
         return {level:'strong',label:'BET — STRONG',fieldSize,ftsCount,support,recentConfirm,fit,
@@ -3811,30 +3695,15 @@ function modelBestBetProfile(scored,field){
 
     // This restores the pre-result profile that identified the strongest
     // non-maiden model leaders on SAR07 without using race results.
-    const support=performanceEarningsSupport(active,horse);
-    const fit=entryLevelFit(horse);
-    const recent=(horse.ppRaces||[]).slice(0,4).filter(r=>number(r.fin)>0 && number(r.fin)<90);
-    const recentTop3=recent.filter(r=>number(r.fin)<=3).length;
-    const sameSurf=(horse.ppRaces||[]).filter(r=>sameSurface(horse.currentSurface,r.surf)).slice(0,4).filter(r=>number(r.fin)>0 && number(r.fin)<90);
-    const sameSurfTop3=sameSurf.filter(r=>number(r.fin)<=3).length;
-    const classOK=fit.label==="PROVEN" || fit.label==="COMPETITIVE" || fit.label==="CLASS RELIEF";
-    const supportOK=support.level==="strong" || support.level==="solid";
-    const formSurfaceOK=recentTop3>=2 || sameSurfTop3>=2;
-
-    // v7.27 guardrail: model separation alone cannot create a BEST BET.
-    // A strongly separated leader must also have Strong/Solid Performance + Earnings support. Class/form remain supporting context but cannot substitute for thin P+E.
     const qualifies =
         !maiden &&
         quality.label==="COMPLETE" &&
         top.probability>=0.50 &&
         separation>=0.25 &&
         !structural.pass &&
-        surfaceOK &&
-        supportOK;
+        surfaceOK;
 
-    if(!supportOK) reasons.push("model separation lacks Strong/Solid Performance + Earnings support");
-
-    return {qualifies,reasons,separation,quality,surfaceOK,support,fit,recentTop3,sameSurfTop3};
+    return {qualifies,reasons,separation,quality,surfaceOK};
 }
 function finalRaceDecision(top,field){
     const structural=raceDecision(top,field);
@@ -3859,7 +3728,6 @@ function openProbability(raceNum){
       ${d.bestProfile?.qualifies ? `<div class="metric-line"><b>MODEL BEST BET:</b> complete-data non-maiden leader with ${(d.probability*100).toFixed(1)}% model share and ${(d.bestProfile.separation*100).toFixed(1)}-point separation.</div>` : ""}
       ${d.recentSpeedConfirmed?.confirmed ? `<div class="metric-line"><b>Recent Speed Confirmed:</b> ${safe(d.recentSpeedConfirmed.text)}</div>` : ""}
       ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
-      ${d.historicalSpeedSupport && d.historicalSpeedSupport.level!=='na' ? `<div class="metric-line"><b>${safe(d.historicalSpeedSupport.label)}:</b> ${safe(d.historicalSpeedSupport.text)}</div>` : ""}
       ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
       ${d.pass ? `<div class="warning-box"><b>PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
       ${(!d.pass && d.decision.warnings && d.decision.warnings.length) ? `<div class="warning-box"><b>Condition note:</b> ${safe(d.decision.warnings.join("; "))}. Warning only; it does not override the final bet-quality decision.</div>` : ""}
@@ -4462,36 +4330,6 @@ function speedConfirmedBadge(field,horse){
     return `<span class="badge badge-green" title="#1 Last Speed and #1 Best Speed">SPEED CONFIRMED</span>${sc.valueWatch ? ' <span class="badge badge-blue">VALUE WATCH</span>' : ''}`;
 }
 
-// v7.28 historical confirmation from paired_final12.csv (248 races).
-// Pre-race rule only: morning-line favorite + Last Speed rank #1 or #2.
-// 151 selections, 68 wins (45.0%), +7.4% flat-win ROI. Morning-line
-// favorites outside the top two Last Speed ranks: 97 selections, 22 wins
-// (22.7%), -25.3% ROI. This is support/caution evidence, not a model override.
-function historicalSpeedSupport(field,horse){
-    const active=(field||[]).filter(h=>!h.scratched);
-    const market=active.filter(h=>oddsDecimal(h.odds)!==null)
-        .slice().sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
-    const marketIndex=market.findIndex(h=>h.id===horse.id);
-    const marketRank=marketIndex>=0 ? marketIndex+1 : null;
-    const last=rankValue(horse,active,h=>number(h.lastSpeed));
-    const lastRank=(last && last.rank!==null) ? last.rank : null;
-    if(marketRank===1 && lastRank!==null && lastRank<=2){
-        return {level:'support',label:'HISTORICAL SPEED SUPPORT',marketRank,lastRank,
-            text:'Fresh paired_final12 test: morning-line favorite + Last Speed rank #1/#2 went 68-for-151 (45.0%) with +7.4% flat-win ROI. Historical development evidence only; not a guarantee.'};
-    }
-    if(marketRank===1 && (lastRank===null || lastRank>2)){
-        return {level:'caution',label:'HISTORICAL SPEED CAUTION',marketRank,lastRank,
-            text:'Fresh paired_final12 test: morning-line favorites outside the top two Last Speed ranks went 22-for-97 (22.7%) with -25.3% flat-win ROI. Caution evidence only; it does not automatically override the model.'};
-    }
-    return {level:'na',label:'',marketRank,lastRank,text:''};
-}
-function historicalSpeedSupportHTML(field,horse){
-    const h=historicalSpeedSupport(field,horse);
-    if(h.level==='na') return '';
-    const cls=h.level==='support' ? 'rq-strong' : 'rq-caution';
-    return `<div class="race-quality ${cls}"><span class="rq-tag">${safe(h.label)}</span>${safe(h.text)}</div>`;
-}
-
 function computeRaceCard(){
 
     computedRaces = {};
@@ -4594,7 +4432,7 @@ function computeRaceCard(){
                 ...decision.quality,
                 level:"strong",
                 label:"BEST BET",
-                text:`Complete-data non-maiden model leader with ${(top.probability*100).toFixed(1)}% model share and ${(bestProfile.separation*100).toFixed(1)}-point separation. Strong/Solid Performance + Earnings must support the model leader; separation alone is not enough.`
+                text:`Complete-data non-maiden model leader with ${(top.probability*100).toFixed(1)}% model share and ${(bestProfile.separation*100).toFixed(1)}-point separation. Performance + Earnings remains supporting evidence, not a veto.`
             };
         }
 
@@ -4632,9 +4470,9 @@ function computeRaceCard(){
             marketRank,
             recentSpeedConfirmed:recentSpeedConfirmedInfo(activeField,top.horse),
             performanceSupport:performanceEarningsSupport(activeField,top.horse),
-            historicalSpeedSupport:historicalSpeedSupport(activeField,top.horse),
             raceQuality:decision.quality,
-            bestProfile
+            bestProfile,
+            consensus:signalConsensus(activeField,top.horse)
         };
 
         const decisionClassMap={};
@@ -4651,7 +4489,8 @@ function computeRaceCard(){
             probability:top.probability,
             separation:bestProfile.separation,
             performanceSupport:perfSupport,
-            activeFieldSize:activeField.length
+            activeFieldSize:activeField.length,
+            consensus:signalConsensus(activeField,top.horse)
         });
 
 
@@ -4675,6 +4514,8 @@ function computeRaceCard(){
                         <span class="badge">
                             TOP PICK
                         </span>
+
+                        ${consensusBadgeHTML(activeField,top.horse)}
 
                         <span class="badge">
                             ${safe(decision.label)}
@@ -4752,6 +4593,8 @@ function computeRaceCard(){
             </div>
 
 
+            ${automaticComparisonHTML(raceNum,activeField,top.horse)}
+
             <div class="metric-line">
 
                 Trainer:
@@ -4797,7 +4640,6 @@ function computeRaceCard(){
 
             ${recentSpeedConfirmedHTML(activeField, top.horse)}
             ${performanceEarningsHTML(activeField, top.horse)}
-            ${historicalSpeedSupportHTML(activeField, top.horse)}
             ${bestProfile.qualifies
                 ? `<div class="race-quality rq-strong"><span class="rq-tag">BEST BET</span>${safe(decision.quality.text)}</div>`
                 : raceBetQualityHTML(activeField, top.horse)}
@@ -4928,7 +4770,7 @@ function computeRaceCard(){
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        Best Races keeps strongly separated, complete-data non-maiden leaders only when Strong/Solid Performance + Earnings also supports them. Scratched and close races are removed.
+        v7.27 adds the AUTOMATIC FROZEN CLAUDE RULE plus SIGNAL CONSENSUS. The Claude rule is fixed before results: M/L favorite at 5/2 or shorter + #1 career earnings/start + sole #1 Best Speed. HIGH CONSENSUS means the top horse is #1 on at least 3 of the usable core measures: Prime Power, Last Speed, Best Speed and Avg-3 Speed. MIXED/HIGH UNCERTAINTY warns that the underlying evidence does not agree. You can also choose Claude/another external pick on each race to expose MODEL AGREEMENT or MODEL DISAGREEMENT. This is a forward test, not a claim that agreement already predicts winners.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
@@ -4936,6 +4778,7 @@ function computeRaceCard(){
           <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET":x.quality.label)}</span>
           ${x.recentSpeedConfirmed?.confirmed?'<span class="badge badge-green">RECENT SPEED CONFIRMED</span>':''}
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
+          ${x.consensus?`<span class="badge ${x.consensus.level==='high'?'badge-green':(x.consensus.level==='mixed'?'badge-blue':'badge-red')}">${safe(x.consensus.label)}</span>`:''}
           ${x.performanceSupport?.level==='strong'?'<span class="badge badge-green">STRONG P+E</span>':(x.performanceSupport?.level==='solid'?'<span class="badge badge-blue">SOLID P+E</span>':'')}
           ${x.close?'<span class="badge">CLOSE RACE</span>':''}
           <div class="metric-line">${safe(x.quality.text)}</div>
@@ -4962,7 +4805,7 @@ function computeRaceCard(){
                 proven win probability. Tap it for the horse's data quality and
                 interpretation. PASS is automatic only for specialty/jump-distance races, poor core-data
                 coverage, or fields with many first-time starters. Exact-condition
-                mismatches are warnings rather than a separate contradictory PASS. RECENT SPEED CONFIRMED means the morning-line favorite is also #1 Avg-3 Speed; #1 Last Speed adds confirmation. HISTORICAL SPEED SUPPORT is a fresh paired_final12 profile: morning-line favorite plus Last Speed rank #1/#2. It is historical support, not a model override or calibrated probability. PRICE CANDIDATE means model rank #1 is morning-line
+                mismatches are warnings rather than a separate contradictory PASS. RECENT SPEED CONFIRMED means the morning-line favorite is also #1 Avg-3 Speed; #1 Last Speed adds confirmation. PRICE CANDIDATE means model rank #1 is morning-line
                 rank #3 or higher; it is a review flag, not a proven edge.
                 Tap the horse name to jump to that race's Full Field and open the horse's complete Past Performances.
 
@@ -6162,6 +6005,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.28 · iPhone/Safari build 2026-09-08</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.26 · iPhone/Safari build 2026-09-08</div>
 </body>
 </html>
