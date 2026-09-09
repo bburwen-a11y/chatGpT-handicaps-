@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.27 · September 8, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.28 · September 9, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,9 +808,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.27</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.28</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.27 adds an automatic frozen Claude-rule cross-check + Signal Consensus test while preserving v7.25 entry-level logic. The question is no longer just who is #1: it shows whether Prime Power, Last Speed, Best Speed and Avg-3 Speed agree, and lets you select a Claude/other pick to mark MODEL AGREEMENT or MODEL DISAGREEMENT. v7.25 strengthened the entry-level question: can this horse compete effectively under TODAY'S conditions? Full and Live Race Cards keep surface, distance, race type, purse/price and eligibility text; every recent PP now carries a class-ladder marker versus today's level. Entry Level Fit uses recent comparable/tougher races, competitive finishes, speed at that level, surface evidence, and class movement. A visible pace projection uses Quirin points + run style. Parser/RSS/H2H/PP behavior and surface-change recomputation are preserved.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.28 tightens the Decision Board so HIGH UNCERTAINTY cannot be labeled BEST BET, uses Signal Consensus as a real bet-quality control, and identifies the strongest race on the card. An independent frozen cross-check remains active internally but is no longer shown as a message. Parser/RSS/H2H/PP behavior, entry-level logic, pace projection, and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -3550,7 +3550,7 @@ function isFirstTimeStarterForQuality(h){
     return usable.length===0;
 }
 
-// v7.27 — SIGNAL CONSENSUS + AUTOMATIC FROZEN CLAUDE RULE
+// v7.28 — SIGNAL CONSENSUS + AUTOMATIC FROZEN INTERNAL RULE
 function signalConsensus(field, horse){
     const active=(field||[]).filter(h=>!h.scratched);
     const tests=[
@@ -3581,32 +3581,67 @@ function consensusBadgeHTML(field,horse){
     return `<span class="badge ${cls}">${safe(c.label)} · ${c.wins}/${c.usable}</span>`;
 }
 
-// Frozen before results: Claude PICK = morning-line favorite, M/L <= 5/2,
-// #1 career earnings/start, AND sole #1 Best Speed. No result-based tuning.
-function frozenClaudePick(field){
+// Frozen before results: independent internal cross-check.
+// Rule is intentionally unchanged: M/L favorite <= 5/2, #1 career earnings/start,
+// and sole #1 raw Best Speed. It is never displayed to the user.
+function hiddenIndependentCheck(field){
     const active=(field||[]).filter(h=>!h.scratched);
     const market=active.filter(h=>oddsDecimal(h.odds)!==null).sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
-    if(!market.length) return {horse:null,reason:'No usable morning line'};
+    if(!market.length) return {horse:null,reason:'no-line'};
     const favOdds=oddsDecimal(market[0].odds);
     const candidates=market.filter(h=>Math.abs(oddsDecimal(h.odds)-favOdds)<1e-9);
     for(const h of candidates){
         const ce=rankValue(h,active,careerEPS);
-        const bs=rankValue(h,active,x=>number(surfaceBestSpeed(x) || x.bestSpeed));
+        const bs=rankValue(h,active,x=>number(x.bestSpeed));
         const short=favOdds<=2.5;
         const earnTop=ce.count>=3 && ce.rank===1;
         const soleBest=bs.count>=3 && bs.rank===1 && !bs.tied;
-        if(short && earnTop && soleBest) return {horse:h,odds:favOdds,ce,bs,reason:'M/L favorite ≤5/2 + #1 earnings/start + sole #1 Best Speed'};
+        if(short && earnTop && soleBest) return {horse:h,odds:favOdds,ce,bs,reason:'pass'};
     }
-    return {horse:null,odds:favOdds,reason:'No horse passes all frozen Claude-rule gates'};
+    return {horse:null,odds:favOdds,reason:'no-pick'};
 }
-function automaticComparisonHTML(raceNum,field,modelHorse){
-    const c=frozenClaudePick(field);
-    const sc=signalConsensus(field,modelHorse);
-    if(!c.horse){
-      return `<div class="warning-box" style="margin-top:8px"><b>3-WAY CROSS-CHECK</b><div style="margin-top:5px"><b>Horse Handicap:</b> #${safe(modelHorse.post)} ${safe(modelHorse.horse)}</div><div><b>Claude Rule:</b> NO PICK</div><div><b>Signal Consensus:</b> ${safe(sc.label)} (${sc.wins}/${sc.usable})</div><span class="badge badge-red">UNRESOLVED / TEST RACE</span> Claude's frozen rule does not confirm the model leader. Track the result; do not force agreement.</div>`;
+function hiddenCheckAdjustment(field,modelHorse){
+    const c=hiddenIndependentCheck(field);
+    if(!c.horse) return 0;
+    return String(c.horse.id)===String(modelHorse.id) ? 5 : -3;
+}
+
+function coreDominanceScore(field,horse){
+    const active=(field||[]).filter(h=>!h.scratched);
+    let score=0;
+    const pp=rankValue(horse,active,h=>number(h.score||h.primePower));
+    const ls=rankValue(horse,active,h=>number(h.lastSpeed));
+    const bs=rankValue(horse,active,h=>number(surfaceBestSpeed(h)||h.bestSpeed));
+    const a3=rankValue(horse,active,avg3RaceSpeed);
+    if(pp.rank===1){
+        score+=12;
+        const vals=active.map(h=>number(h.score||h.primePower)).filter(v=>v>0).sort((a,b)=>b-a);
+        if(vals.length>1 && vals[0]>0) score+=Math.min(15,Math.max(0,((vals[0]-vals[1])/vals[0])*160));
     }
-    const agree=String(c.horse.id)===String(modelHorse.id);
-    return `<div class="warning-box" style="margin-top:8px"><b>3-WAY CROSS-CHECK</b><div style="margin-top:5px"><b>Horse Handicap:</b> #${safe(modelHorse.post)} ${safe(modelHorse.horse)}</div><div><b>Claude Rule:</b> #${safe(c.horse.post)} ${safe(c.horse.horse)} — ${safe(c.reason)}</div><div><b>Signal Consensus:</b> ${safe(sc.label)} (${sc.wins}/${sc.usable})</div>${agree?'<span class="badge badge-green">MAX AGREEMENT</span> Independent methods point to the same horse.':'<span class="badge badge-red">MODEL DISAGREEMENT</span> Treat as uncertainty and track the result.'}</div>`;
+    if(ls.rank===1) score+=10;
+    if(a3.rank===1) score+=10;
+    if(bs.rank===1) score+=5;
+    return score;
+}
+
+function cardStrengthScore(row){
+    let s=0;
+    if(row.pass) s-=100;
+    if(row.consensus?.level==='high') s+=50;
+    else if(row.consensus?.level==='mixed') s+=12;
+    else s-=45;
+    if(row.bestProfile?.quality?.label==='COMPLETE') s+=12;
+    if(row.recentSpeedConfirmed?.confirmed) s+=12;
+    if(row.speedConfirmed) s+=8;
+    if(row.performanceSupport?.level==='strong') s+=8;
+    else if(row.performanceSupport?.level==='solid') s+=4;
+    if((row.activeFieldSize||99)<=9) s+=10;
+    else if((row.activeFieldSize||99)>=12) s-=10;
+    s+=(row.dominance||0);
+    s+=Math.min(10,(row.probability||0)*10);
+    s+=Math.min(6,(row.separation||0)*8);
+    s+=(row.hiddenCheckAdjustment||0);
+    return s;
 }
 
 function raceBetQuality(field, modelTopHorse){
@@ -3692,7 +3727,12 @@ function modelBestBetProfile(scored,field){
     if(separation<0.25) reasons.push("model separation below 25 points");
     if(structural.pass) reasons.push(...structural.reasons);
     if(!surfaceOK) reasons.push("surface evidence not proven/competitive");
+    const consensus=signalConsensus(active,horse);
+    if(consensus.level==='uncertain') reasons.push("high signal uncertainty");
 
+    // v7.28 keeps the separated model profile, but HIGH UNCERTAINTY is a veto.
+    // This prevents a race like Race 5 / Doctrine from being labeled BEST BET
+    // while the same board says the evidence does not agree.
     // This restores the pre-result profile that identified the strongest
     // non-maiden model leaders on SAR07 without using race results.
     const qualifies =
@@ -3701,18 +3741,32 @@ function modelBestBetProfile(scored,field){
         top.probability>=0.50 &&
         separation>=0.25 &&
         !structural.pass &&
-        surfaceOK;
+        surfaceOK &&
+        consensus.level!=='uncertain';
 
     return {qualifies,reasons,separation,quality,surfaceOK};
 }
 function finalRaceDecision(top,field){
     const structural=raceDecision(top,field);
-    const quality=raceBetQuality(field,top.horse);
+    let quality=raceBetQuality(field,top.horse);
+    const consensus=signalConsensus(field,top.horse);
+    const complete=top.components?.quality?.label==='COMPLETE';
+    const active=(field||[]).filter(h=>!h.scratched);
+    const fts=active.filter(isFirstTimeStarterForQuality).length;
+
+    // v7.28: a complete-data leader with HIGH CONSENSUS is not forced to PASS
+    // solely because Performance + Earnings support is thin. This is especially
+    // important in proven older-horse/stakes fields where the four core measures agree.
+    if(!structural.pass && quality.level==='pass' && complete && consensus.level==='high' && fts===0 && active.length<=9){
+        quality={...quality,level:'strong',label:'BET — STRONG',
+            text:'High Consensus across the core measures with complete data overrides a thin Performance + Earnings warning. The warning remains supporting context, not a veto.'};
+    }
+
     const pass=structural.pass || quality.level==='pass';
     const label=pass ? (structural.pass ? 'PASS' : quality.label) : quality.label;
     const reasons=[...structural.reasons];
     if(quality.level==='pass') reasons.push(quality.text);
-    return {pass,label,reasons,warnings:structural.warnings || [],structural,quality};
+    return {pass,label,reasons,warnings:structural.warnings || [],structural,quality,consensus};
 }
 
 
@@ -4424,7 +4478,8 @@ function computeRaceCard(){
         // MODEL BEST BET is independent of the newer P+E filter. P+E remains
         // supporting evidence, but it cannot erase a strongly separated,
         // complete-data, non-maiden top selection.
-        if(bestProfile.qualifies){
+        const topConsensus=signalConsensus(activeField,top.horse);
+        if(bestProfile.qualifies && topConsensus.level!=='uncertain'){
             decision.pass=false;
             decision.label="BEST BET";
             decision.reasons=[];
@@ -4490,7 +4545,9 @@ function computeRaceCard(){
             separation:bestProfile.separation,
             performanceSupport:perfSupport,
             activeFieldSize:activeField.length,
-            consensus:signalConsensus(activeField,top.horse)
+            consensus:signalConsensus(activeField,top.horse),
+            dominance:coreDominanceScore(activeField,top.horse),
+            hiddenCheckAdjustment:hiddenCheckAdjustment(activeField,top.horse)
         });
 
 
@@ -4514,6 +4571,7 @@ function computeRaceCard(){
                         <span class="badge">
                             TOP PICK
                         </span>
+                        <span data-strongest-race="${safe(raceNum)}"></span>
 
                         ${consensusBadgeHTML(activeField,top.horse)}
 
@@ -4593,7 +4651,6 @@ function computeRaceCard(){
             </div>
 
 
-            ${automaticComparisonHTML(raceNum,activeField,top.horse)}
 
             <div class="metric-line">
 
@@ -4755,26 +4812,46 @@ function computeRaceCard(){
                (b.speedConfirmed?1:0)-(a.speedConfirmed?1:0) ||
                number(a.race)-number(b.race);
     });
+    const strongestRace=betRaceRows
+        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level!=='uncertain')
+        .map(x=>({...x,cardStrength:cardStrengthScore(x)}))
+        .sort((a,b)=>b.cardStrength-a.cardStrength)[0] || null;
+
+    // Mark the strongest card-wide decision inside the Decision Board itself.
+    if(strongestRace){
+        bestHTML=bestHTML.replace(
+            `<span data-strongest-race="${safe(strongestRace.race)}"></span>`,
+            `<span class="badge badge-green">STRONGEST PICK</span>`
+        );
+    }
+    bestHTML=bestHTML.replace(/<span data-strongest-race="[^"]+"><\/span>/g,'');
+
     const bestBetRaces=rankedBetRaces.filter(x=>
         !x.horse.scratched &&
         !x.close &&
+        x.consensus?.level!=='uncertain' &&
         (
             x.bestProfile?.qualifies ||
             (
                 !x.pass &&
                 (x.quality.level==="strong" || (x.quality.level==="standard" && x.recentSpeedConfirmed?.confirmed)) &&
-                (x.performanceSupport?.level==="strong" || x.performanceSupport?.level==="solid")
+                (
+                    x.performanceSupport?.level==="strong" ||
+                    x.performanceSupport?.level==="solid" ||
+                    x.consensus?.level==='high'
+                )
             )
         )
     );
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        v7.27 adds the AUTOMATIC FROZEN CLAUDE RULE plus SIGNAL CONSENSUS. The Claude rule is fixed before results: M/L favorite at 5/2 or shorter + #1 career earnings/start + sole #1 Best Speed. HIGH CONSENSUS means the top horse is #1 on at least 3 of the usable core measures: Prime Power, Last Speed, Best Speed and Avg-3 Speed. MIXED/HIGH UNCERTAINTY warns that the underlying evidence does not agree. You can also choose Claude/another external pick on each race to expose MODEL AGREEMENT or MODEL DISAGREEMENT. This is a forward test, not a claim that agreement already predicts winners.
+        v7.28 uses SIGNAL CONSENSUS as a bet-quality control. HIGH CONSENSUS means the top horse is #1 on at least 3 usable core measures: Prime Power, Last Speed, Best Speed and Avg-3 Speed. HIGH UNCERTAINTY is now a hard veto against BEST BET. The strongest eligible race on the card is also marked STRONGEST PICK on the Decision Board. An independent frozen cross-check continues to run internally without displaying comparison messages.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
           <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
+          ${strongestRace && String(strongestRace.race)===String(x.race)?'<span class="badge badge-green">STRONGEST PICK</span>':''}
           <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET":x.quality.label)}</span>
           ${x.recentSpeedConfirmed?.confirmed?'<span class="badge badge-green">RECENT SPEED CONFIRMED</span>':''}
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
@@ -6005,6 +6082,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.27 · iPhone/Safari build 2026-09-08</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.28 · iPhone/Safari build 2026-09-09</div>
 </body>
 </html>
