@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.27 · September 8, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.28 · September 8, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -808,7 +808,7 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.27</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.28</span></h1>
 <p class="tagline">
 BRIS Single File + native 4-file Multi-PP parser (.DRF/.DR2/.DR3/.DR4) with the same Horse Handicap engine. Multi-PP now preserves turf/wet records, run style, Quirin speed points, workouts, surface-specific Best Speed, Prime Power, and full recent past performances instead of relying on a partial conversion. Built for iPhone/Safari. Existing Single File, RSS, H2H, PP, class-fit, pace and surface-change behavior is preserved.
 </p>
@@ -3859,6 +3859,7 @@ function openProbability(raceNum){
       ${d.bestProfile?.qualifies ? `<div class="metric-line"><b>MODEL BEST BET:</b> complete-data non-maiden leader with ${(d.probability*100).toFixed(1)}% model share and ${(d.bestProfile.separation*100).toFixed(1)}-point separation.</div>` : ""}
       ${d.recentSpeedConfirmed?.confirmed ? `<div class="metric-line"><b>Recent Speed Confirmed:</b> ${safe(d.recentSpeedConfirmed.text)}</div>` : ""}
       ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
+      ${d.historicalSpeedSupport && d.historicalSpeedSupport.level!=='na' ? `<div class="metric-line"><b>${safe(d.historicalSpeedSupport.label)}:</b> ${safe(d.historicalSpeedSupport.text)}</div>` : ""}
       ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
       ${d.pass ? `<div class="warning-box"><b>PASS:</b> ${safe(d.decision.reasons.join("; "))}</div>` : ""}
       ${(!d.pass && d.decision.warnings && d.decision.warnings.length) ? `<div class="warning-box"><b>Condition note:</b> ${safe(d.decision.warnings.join("; "))}. Warning only; it does not override the final bet-quality decision.</div>` : ""}
@@ -4461,6 +4462,36 @@ function speedConfirmedBadge(field,horse){
     return `<span class="badge badge-green" title="#1 Last Speed and #1 Best Speed">SPEED CONFIRMED</span>${sc.valueWatch ? ' <span class="badge badge-blue">VALUE WATCH</span>' : ''}`;
 }
 
+// v7.28 historical confirmation from paired_final12.csv (248 races).
+// Pre-race rule only: morning-line favorite + Last Speed rank #1 or #2.
+// 151 selections, 68 wins (45.0%), +7.4% flat-win ROI. Morning-line
+// favorites outside the top two Last Speed ranks: 97 selections, 22 wins
+// (22.7%), -25.3% ROI. This is support/caution evidence, not a model override.
+function historicalSpeedSupport(field,horse){
+    const active=(field||[]).filter(h=>!h.scratched);
+    const market=active.filter(h=>oddsDecimal(h.odds)!==null)
+        .slice().sort((a,b)=>oddsDecimal(a.odds)-oddsDecimal(b.odds));
+    const marketIndex=market.findIndex(h=>h.id===horse.id);
+    const marketRank=marketIndex>=0 ? marketIndex+1 : null;
+    const last=rankValue(horse,active,h=>number(h.lastSpeed));
+    const lastRank=(last && last.rank!==null) ? last.rank : null;
+    if(marketRank===1 && lastRank!==null && lastRank<=2){
+        return {level:'support',label:'HISTORICAL SPEED SUPPORT',marketRank,lastRank,
+            text:'Fresh paired_final12 test: morning-line favorite + Last Speed rank #1/#2 went 68-for-151 (45.0%) with +7.4% flat-win ROI. Historical development evidence only; not a guarantee.'};
+    }
+    if(marketRank===1 && (lastRank===null || lastRank>2)){
+        return {level:'caution',label:'HISTORICAL SPEED CAUTION',marketRank,lastRank,
+            text:'Fresh paired_final12 test: morning-line favorites outside the top two Last Speed ranks went 22-for-97 (22.7%) with -25.3% flat-win ROI. Caution evidence only; it does not automatically override the model.'};
+    }
+    return {level:'na',label:'',marketRank,lastRank,text:''};
+}
+function historicalSpeedSupportHTML(field,horse){
+    const h=historicalSpeedSupport(field,horse);
+    if(h.level==='na') return '';
+    const cls=h.level==='support' ? 'rq-strong' : 'rq-caution';
+    return `<div class="race-quality ${cls}"><span class="rq-tag">${safe(h.label)}</span>${safe(h.text)}</div>`;
+}
+
 function computeRaceCard(){
 
     computedRaces = {};
@@ -4601,6 +4632,7 @@ function computeRaceCard(){
             marketRank,
             recentSpeedConfirmed:recentSpeedConfirmedInfo(activeField,top.horse),
             performanceSupport:performanceEarningsSupport(activeField,top.horse),
+            historicalSpeedSupport:historicalSpeedSupport(activeField,top.horse),
             raceQuality:decision.quality,
             bestProfile
         };
@@ -4765,6 +4797,7 @@ function computeRaceCard(){
 
             ${recentSpeedConfirmedHTML(activeField, top.horse)}
             ${performanceEarningsHTML(activeField, top.horse)}
+            ${historicalSpeedSupportHTML(activeField, top.horse)}
             ${bestProfile.qualifies
                 ? `<div class="race-quality rq-strong"><span class="rq-tag">BEST BET</span>${safe(decision.quality.text)}</div>`
                 : raceBetQualityHTML(activeField, top.horse)}
@@ -4929,7 +4962,7 @@ function computeRaceCard(){
                 proven win probability. Tap it for the horse's data quality and
                 interpretation. PASS is automatic only for specialty/jump-distance races, poor core-data
                 coverage, or fields with many first-time starters. Exact-condition
-                mismatches are warnings rather than a separate contradictory PASS. RECENT SPEED CONFIRMED means the morning-line favorite is also #1 Avg-3 Speed; #1 Last Speed adds confirmation. PRICE CANDIDATE means model rank #1 is morning-line
+                mismatches are warnings rather than a separate contradictory PASS. RECENT SPEED CONFIRMED means the morning-line favorite is also #1 Avg-3 Speed; #1 Last Speed adds confirmation. HISTORICAL SPEED SUPPORT is a fresh paired_final12 profile: morning-line favorite plus Last Speed rank #1/#2. It is historical support, not a model override or calibrated probability. PRICE CANDIDATE means model rank #1 is morning-line
                 rank #3 or higher; it is a review flag, not a proven edge.
                 Tap the horse name to jump to that race's Full Field and open the horse's complete Past Performances.
 
@@ -6129,6 +6162,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.27 · iPhone/Safari build 2026-09-07</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.28 · iPhone/Safari build 2026-09-08</div>
 </body>
 </html>
