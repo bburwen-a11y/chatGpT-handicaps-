@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.36 · September 9, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.37 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -822,9 +822,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.36</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.37</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.36 restores the v7.30 Best Races selection path that produced the frozen pre-result picks, while keeping the later projected-pace field fix. HIGH UNCERTAINTY remains a hard veto against BEST BET. paired_final12 is now used only as an optional historical confirmation badge; it does not erase a v7.30-qualified wager.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value.
 </p>
 </header>
 
@@ -4845,6 +4845,8 @@ function computeRaceCard(){
 
             </div>
 
+            ${topPickH2HWarning(activeField, top.horse)}
+
             ${decisionAlsoWithShot(scored,decisionClassMap,top)}
 
             ${
@@ -5472,6 +5474,70 @@ function renderH2HGroup(group){
 
 }
 
+
+function topPickH2HWarning(field, topHorse){
+
+    if(!topHorse) return "";
+
+    const groups=currentRaceH2HGroups(field || []);
+    const losses=[];
+    const wins=[];
+
+    groups.forEach(group=>{
+        const mine=group.runners.find(x=>x.horse && x.horse.id===topHorse.id);
+        if(!mine) return;
+
+        const myFin=h2hFinishNumber(mine.pp.fin);
+        if(myFin===null) return;
+
+        group.runners.forEach(other=>{
+            if(!other.horse || other.horse.id===topHorse.id) return;
+            const otherFin=h2hFinishNumber(other.pp.fin);
+            if(otherFin===null || otherFin===myFin) return;
+
+            const margin=h2hMarginBetween(mine,other);
+            const marginText=margin ? ` by ${formatH2HLengths(margin)}` : "";
+            const meta=[
+                formatDate(group.date),
+                group.track || "",
+                group.raceNum ? `R${group.raceNum}` : ""
+            ].filter(Boolean).join(" · ");
+
+            if(otherFin < myFin){
+                losses.push({
+                    date:String(group.date||""),
+                    html:`<b>#${safe(other.horse.post)} ${safe(other.horse.horse)}</b> beat <b>#${safe(topHorse.post)} ${safe(topHorse.horse)}</b>${marginText} (${h2hOrdinal(other.pp.fin)} vs ${h2hOrdinal(mine.pp.fin)})${meta ? ` · ${safe(meta)}` : ""}`
+                });
+            }else if(myFin < otherFin){
+                wins.push({
+                    date:String(group.date||""),
+                    html:`<b>#${safe(topHorse.post)} ${safe(topHorse.horse)}</b> beat <b>#${safe(other.horse.post)} ${safe(other.horse.horse)}</b>${marginText}${meta ? ` · ${safe(meta)}` : ""}`
+                });
+            }
+        });
+    });
+
+    losses.sort((a,b)=>b.date.localeCompare(a.date));
+    wins.sort((a,b)=>b.date.localeCompare(a.date));
+
+    if(losses.length){
+        return `
+          <div class="warning-box" style="border-width:2px;">
+            <b>H2H WARNING — TOP PICK HAS LOST TO TODAY'S RIVAL:</b><br>
+            ${losses.map(x=>`<div style="margin-top:5px;">${x.html}</div>`).join("")}
+            <div class="note" style="margin-top:6px;">Direct prior loss is a decision-board warning. It does not automatically replace the model's top pick.</div>
+          </div>`;
+    }
+
+    if(wins.length){
+        return `
+          <div class="metric-line">
+            <b>H2H support:</b> ${wins.map(x=>x.html).join(" · ")}
+          </div>`;
+    }
+
+    return "";
+}
 
 function buildH2H(){
     // H2H now renders inline inside Contenders / Pretenders.
@@ -6230,6 +6296,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.36 · iPhone/Safari build 2026-09-09</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.37 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
