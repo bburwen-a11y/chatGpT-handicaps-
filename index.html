@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.37 · September 10, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.38 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -4388,6 +4388,15 @@ function goToRaceCard(raceNum){
     }
 }
 
+function goToContendersRace(raceNum){
+    activeRaceNumber=Number(raceNum);
+    showTab("analysis");
+    const target=document.getElementById(`contenders-race-${raceNum}`);
+    if(target){
+        target.scrollIntoView({behavior:"smooth",block:"start"});
+    }
+}
+
 function setRaceCardView(view){
     raceCardView = view === "live" ? "live" : "full";
     const full=$("fullFieldView"), live=$("liveFieldView");
@@ -4676,6 +4685,7 @@ function computeRaceCard(){
             separation:bestProfile.separation,
             performanceSupport:perfSupport,
             activeFieldSize:activeField.length,
+            activeField,
             consensus:signalConsensus(activeField,top.horse),
             dominance:coreDominanceScore(activeField,top.horse),
             hiddenCheckAdjustment:hiddenCheckAdjustment(activeField,top.horse)
@@ -4944,7 +4954,7 @@ function computeRaceCard(){
                number(a.race)-number(b.race);
     });
     const strongestRace=betRaceRows
-        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level!=='uncertain')
+        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level==='high' && !topPickHasH2HLoss(x.activeField,x.horse))
         .map(x=>({...x,cardStrength:cardStrengthScore(x)}))
         .sort((a,b)=>b.cardStrength-a.cardStrength)[0] || null;
 
@@ -4960,11 +4970,12 @@ function computeRaceCard(){
     const bestBetRaces=rankedBetRaces.filter(x=>
         !x.horse.scratched &&
         !x.close &&
-        x.consensus?.level!=='uncertain' &&
+        !x.pass &&
+        x.consensus?.level==='high' &&
+        !topPickHasH2HLoss(x.activeField,x.horse) &&
         (
             x.bestProfile?.qualifies ||
             (
-                !x.pass &&
                 (x.quality.level==="strong" || (x.quality.level==="standard" && x.recentSpeedConfirmed?.confirmed)) &&
                 (
                     x.performanceSupport?.level==="strong" ||
@@ -4975,13 +4986,10 @@ function computeRaceCard(){
         )
     );
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
-      <h3>Best Races to Bet</h3>
-      <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        v7.36 restores the v7.30 Best Races selection path that produced the frozen pre-result picks. HIGH UNCERTAINTY remains a hard veto. The paired_final12 3-of-4 / PP +4 / M/L ≤5/2 / field ≤9 profile is shown only as a HISTORICAL CONFIRMATION badge; it no longer acts as a hard gate that can erase otherwise qualified v7.30 selections.
-      </p>
+      <h3>Best Bets</h3>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
-          <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
+          <b>#${i+1} · <span class="race-number-link" onclick="goToContendersRace('${safe(x.race)}')" title="Open this race in Contenders">Race ${safe(x.race)}</span> — ${safe(x.horse.horse)}</b>
           ${strongestRace && String(strongestRace.race)===String(x.race)?'<span class="badge badge-green">STRONGEST PICK</span>':''}
           <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET":x.quality.label)}</span>
           ${x.recentSpeedConfirmed?.confirmed?'<span class="badge badge-green">RECENT SPEED CONFIRMED</span>':''}
@@ -4992,6 +5000,7 @@ function computeRaceCard(){
           ${x.ppGap!==null && x.ppGap!==undefined?`<span class="badge badge-green">PP +${x.ppGap.toFixed(1)}</span>`:''}
           ${x.paceGate?.projection?`<span class="badge badge-blue">PACE ${safe(x.paceGate.projection.label)}</span>`:''}
           <div class="metric-line">${safe(x.quality.text)}</div>
+          ${topPickH2HWarning(x.activeField,x.horse)}
         </div>`).join("") :
         '<div class="warning-box"><b>No race qualifies under the restored v7.30 Best Races logic today.</b> Review contenders, but do not force a wager.</div>'}
     </div>`;
@@ -5474,6 +5483,22 @@ function renderH2HGroup(group){
 
 }
 
+
+function topPickHasH2HLoss(field, topHorse){
+    if(!topHorse) return false;
+    const groups=currentRaceH2HGroups(field || []);
+    return groups.some(group=>{
+        const mine=group.runners.find(x=>x.horse && x.horse.id===topHorse.id);
+        if(!mine) return false;
+        const myFin=h2hFinishNumber(mine.pp.fin);
+        if(myFin===null) return false;
+        return group.runners.some(other=>{
+            if(!other.horse || other.horse.id===topHorse.id) return false;
+            const otherFin=h2hFinishNumber(other.pp.fin);
+            return otherFin!==null && otherFin < myFin;
+        });
+    });
+}
 
 function topPickH2HWarning(field, topHorse){
 
@@ -6296,6 +6321,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.37 · iPhone/Safari build 2026-09-10</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.38 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
