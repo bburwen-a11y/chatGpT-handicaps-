@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.32 · September 9, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.33 · September 9, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -822,9 +822,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.32</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.33</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.32 is the live Best Bet validation build. It fixes projected pace by reading BRIS Speed Points (field 211) together with Run Style, then applies a stricter Best Bet gate: HIGH CONSENSUS (at least 3 of 4 core measures), Prime Power advantage of at least 4 points, morning line 5/2 or lower, 9 or fewer active runners, usable pace evidence, complete core data, non-maiden, and no structural veto. Horses that rank first but miss the Best Bet gate remain CONTENDER — NO BET rather than being falsely labeled losers. HIGH UNCERTAINTY remains an automatic Best Bet veto. v7.30 remains the rollback baseline; v7.32 restores the untouched v7.30 DRF/RSS parser path.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.33 keeps the restored v7.30 DRF/RSS parser path and balances the Best Bet rules so projected pace, maiden status and surface evidence are confidence modifiers rather than automatic eliminators. BEST BET — STRONG requires high core consensus, #1 Prime Power with a 4.0+ point edge, M/L 5/2 or lower, 9 or fewer active runners and no hard structural veto. BEST BET — STANDARD allows a smaller 2.0+ Prime Power edge, M/L up to 7/2 and up to 10 runners when the core data remain complete and consensus is high. HIGH UNCERTAINTY and structural chaos remain hard vetoes.
 </p>
 </header>
 
@@ -3595,7 +3595,7 @@ function consensusBadgeHTML(field,horse){
     return `<span class="badge ${cls}">${safe(c.label)} · ${c.wins}/${c.usable}</span>`;
 }
 
-// v7.32 validation gates derived from the larger historical paired set.
+// v7.33 balanced validation gates: pace/maiden/surface are modifiers, not automatic vetoes.
 function primePowerGap(field,horse){
     const active=(field||[]).filter(h=>!h.scratched);
     const vals=active.map(h=>({h,v:number(h.score||h.primePower)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
@@ -3741,11 +3741,12 @@ function raceBetQualityHTML(field, modelTopHorse){
 }
 
 function modelBestBetProfile(scored,field){
-    if(!scored || !scored.length) return {qualifies:false,reasons:[]};
+    if(!scored || !scored.length) return {qualifies:false,tier:null,reasons:[],softWarnings:[]};
     const active=(field||[]).filter(h=>!h.scratched);
     const top=scored[0];
     const horse=top.horse;
     const reasons=[];
+    const softWarnings=[];
     const raceLabel=raceTypeLabel(horse.raceType).toLowerCase();
     const maiden=raceLabel.includes("maiden");
     const quality=top.components?.quality || dataQuality(horse);
@@ -3758,23 +3759,40 @@ function modelBestBetProfile(scored,field){
     const turf=turfProofStatus(horse);
     const surfaceOK=surfGroup!=="T" || turf.code==="PROVEN" || turf.code==="COMPETITIVE";
 
-    if(maiden) reasons.push("maiden race");
-    if(quality.label!=="COMPLETE") reasons.push("core data not complete");
-    if(consensus.level!=="high") reasons.push(consensus.level==='uncertain' ? "high signal uncertainty" : "fewer than 3 of 4 core measures are #1");
+    // Hard vetoes: these mean the race itself is not trustworthy enough for a Best Bet.
+    if(consensus.level==='uncertain') reasons.push("HIGH UNCERTAINTY");
+    else if(consensus.level!=="high") reasons.push("fewer than 3 of 4 core measures are #1");
     if(!pp.leader) reasons.push("not #1 Prime Power");
-    else if(pp.gap===null || pp.gap<4) reasons.push(`Prime Power advantage ${pp.gap===null?'N/A':pp.gap.toFixed(1)} is below 4.0`);
-    if(ml===null) reasons.push("morning line unavailable");
-    else if(ml>2.5) reasons.push(`morning line ${horse.odds} is above 5/2`);
-    if(active.length>9) reasons.push(`${active.length}-horse field is above 9`);
-    if(!pace.usable) reasons.push("projected pace lacks usable Speed Points evidence");
     if(structural.pass) reasons.push(...structural.reasons);
-    if(!surfaceOK) reasons.push("surface evidence not proven/competitive");
 
-    const qualifies=!maiden && quality.label==="COMPLETE" && consensus.level==='high' &&
-        pp.leader && pp.gap!==null && pp.gap>=4 && ml!==null && ml<=2.5 &&
-        active.length<=9 && pace.usable && !structural.pass && surfaceOK;
+    // Soft warnings: reduce confidence, but do not erase a dominant horse.
+    if(quality.label!=="COMPLETE") softWarnings.push("core data incomplete");
+    if(maiden) softWarnings.push("maiden race");
+    if(!pace.usable) softWarnings.push("projected pace evidence limited");
+    if(!surfaceOK) softWarnings.push("surface evidence unproven");
+    if(active.length>9) softWarnings.push(`${active.length}-horse field`);
+    if(ml===null) softWarnings.push("morning line unavailable");
 
-    return {qualifies,reasons,quality,surfaceOK,consensus,ppGap:pp.gap,ppRank:pp.rank,ml,fieldSize:active.length,pace};
+    const noHardVeto=reasons.length===0;
+    const strong=noHardVeto && quality.label==="COMPLETE" && consensus.level==='high' &&
+        pp.leader && pp.gap!==null && pp.gap>=4 && ml!==null && ml<=2.5 && active.length<=9;
+
+    // STANDARD still requires complete core data and high consensus, but tolerates
+    // a smaller PP edge / slightly higher price / one extra runner. Pace, maiden and
+    // surface status affect the explanation and strength score rather than vetoing.
+    const standard=!strong && noHardVeto && quality.label==="COMPLETE" && consensus.level==='high' &&
+        pp.leader && pp.gap!==null && pp.gap>=2 && ml!==null && ml<=3.5 && active.length<=10;
+
+    const qualifies=strong || standard;
+    const tier=strong ? "strong" : (standard ? "standard" : null);
+
+    if(!qualifies && pp.leader && pp.gap!==null && pp.gap<2) reasons.push(`Prime Power advantage ${pp.gap.toFixed(1)} is below 2.0`);
+    if(!qualifies && ml!==null && ml>3.5) reasons.push(`morning line ${horse.odds} is above 7/2`);
+    if(!qualifies && active.length>10) reasons.push(`${active.length}-horse field is above 10`);
+    if(!qualifies && quality.label!=="COMPLETE") reasons.push("core data not complete");
+
+    return {qualifies,tier,reasons:[...new Set(reasons)],softWarnings,quality,surfaceOK,consensus,
+        ppGap:pp.gap,ppRank:pp.rank,ml,fieldSize:active.length,pace,maiden};
 }
 function finalRaceDecision(top,field){
     const structural=raceDecision(top,field);
@@ -4537,20 +4555,23 @@ function computeRaceCard(){
         const decision=finalRaceDecision(top,activeField);
         const bestProfile=modelBestBetProfile(scored,activeField);
 
-        // v7.32: BEST BET is a strict historical validation gate. A top-ranked horse
-        // that misses one or more gates remains visible as CONTENDER — NO BET.
+        // v7.33: pace, maiden status and surface proof modify confidence rather than
+        // automatically erasing an otherwise dominant Best Bet profile.
         const topConsensus=signalConsensus(activeField,top.horse);
         if(bestProfile.qualifies){
             decision.pass=false;
-            decision.label="BEST BET";
+            decision.label=bestProfile.tier==="strong" ? "BEST BET — STRONG" : "BEST BET — STANDARD";
             decision.reasons=[];
-            decision.quality={...decision.quality,level:"strong",label:"BEST BET",
-                text:`3/4+ core consensus · PP +${bestProfile.ppGap.toFixed(1)} · M/L ${top.horse.odds} · ${activeField.length} horses · ${bestProfile.pace.projection.label}.`};
+            const paceText=bestProfile.pace?.usable ? `PACE ${bestProfile.pace.projection.label}` : "PACE LIMITED";
+            const warningText=bestProfile.softWarnings?.length ? ` · CAUTION: ${bestProfile.softWarnings.join(', ')}` : "";
+            decision.quality={...decision.quality,level:bestProfile.tier,label:decision.label,
+                text:`3/4+ core consensus · PP +${bestProfile.ppGap.toFixed(1)} · M/L ${top.horse.odds} · ${activeField.length} horses · ${paceText}${warningText}.`};
         }else if(!decision.pass){
             decision.label="CONTENDER — NO BET";
             decision.reasons=[...bestProfile.reasons];
+            const why=[...bestProfile.reasons,...bestProfile.softWarnings].filter(Boolean);
             decision.quality={...decision.quality,label:"CONTENDER — NO BET",
-                text:`Top-ranked contender, but it misses the v7.32 Best Bet gate: ${bestProfile.reasons.join('; ') || 'insufficient confirmation'}.`};
+                text:`Top-ranked contender, but it misses the v7.33 Best Bet gate: ${why.join('; ') || 'insufficient separation/confirmation'}.`};
         }
 
 
@@ -4897,13 +4918,13 @@ function computeRaceCard(){
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        v7.32 BEST BET requires: #1 Prime Power with a 4.0+ point advantage, #1 on at least 3 of 4 core measures (Prime Power, Last Speed, Best Speed, Avg-3 Speed), morning line 5/2 or lower, 9 or fewer active runners, complete core data, non-maiden status, usable BRIS Speed Points pace evidence, acceptable surface evidence, and no structural veto. Horses that miss a gate remain contenders but are not promoted into Best Races. v7.30 remains the rollback baseline; v7.32 restores the untouched v7.30 DRF/RSS parser path.
+        v7.33 uses two Best Bet levels. STRONG: #1 Prime Power with a 4.0+ point edge, #1 on at least 3 of 4 core measures, M/L 5/2 or lower, 9 or fewer active runners, complete core data and no hard veto. STANDARD: the same high core consensus with a 2.0+ PP edge, M/L 7/2 or lower and up to 10 runners. HIGH UNCERTAINTY or a structural PASS remains a hard veto. Projected pace, maiden status and surface evidence now modify confidence instead of automatically eliminating the horse.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
           <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
           ${strongestRace && String(strongestRace.race)===String(x.race)?'<span class="badge badge-green">STRONGEST PICK</span>':''}
-          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET":x.quality.label)}</span>
+          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?(x.bestProfile.tier==="strong"?"BEST BET — STRONG":"BEST BET — STANDARD"):x.quality.label)}</span>
           ${x.recentSpeedConfirmed?.confirmed?'<span class="badge badge-green">RECENT SPEED CONFIRMED</span>':''}
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
           ${x.consensus?`<span class="badge ${x.consensus.level==='high'?'badge-green':(x.consensus.level==='mixed'?'badge-blue':'badge-red')}">${safe(x.consensus.label)}</span>`:''}
@@ -6153,6 +6174,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.32 · iPhone/Safari build 2026-09-09</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.33 · iPhone/Safari build 2026-09-09</div>
 </body>
 </html>
