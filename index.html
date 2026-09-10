@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.35 · September 9, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.36 · September 9, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -822,9 +822,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.35</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.36</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.35 restores the v7.30 Best Races selection path that produced the frozen pre-result picks, while keeping the later projected-pace field fix. HIGH UNCERTAINTY remains a hard veto against BEST BET. paired_final12 is now used only as an optional historical confirmation badge; it does not erase a v7.30-qualified wager.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.36 restores the v7.30 Best Races selection path that produced the frozen pre-result picks, while keeping the later projected-pace field fix. HIGH UNCERTAINTY remains a hard veto against BEST BET. paired_final12 is now used only as an optional historical confirmation badge; it does not erase a v7.30-qualified wager.
 </p>
 </header>
 
@@ -3595,7 +3595,7 @@ function consensusBadgeHTML(field,horse){
     return `<span class="badge ${cls}">${safe(c.label)} · ${c.wins}/${c.usable}</span>`;
 }
 
-// v7.35 balanced validation gates: pace/maiden/surface are modifiers, not automatic vetoes.
+// v7.36 balanced validation gates: pace/maiden/surface are modifiers, not automatic vetoes.
 function primePowerGap(field,horse){
     const active=(field||[]).filter(h=>!h.scratched);
     const vals=active.map(h=>({h,v:number(h.score||h.primePower)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
@@ -4110,6 +4110,62 @@ function classStrengthFromValues(purse,claiming){
     return Math.log10(1+p)*10 + Math.log10(1+c)*4;
 }
 
+// v7.36 — class-family normalization.
+// BRIS past-performance class text can use forms such as Moc50000.
+// Those are maiden optional-claiming races and must stay in the MAIDEN family
+// when compared with MdSpWt / MSW / maiden claiming races.
+function normalizedClassText(v){
+    return String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+}
+
+function classFamilyFromText(text, raceType){
+    const t=normalizedClassText(text);
+    const rt=String(raceType||"").trim().toUpperCase();
+    if(rt==="S" || rt==="M" || rt==="MO") return "MAIDEN";
+    if(/^MOC/.test(t) || /^MOCL/.test(t) || t.includes("MAIDENOPTIONAL")) return "MAIDEN";
+    if(/^(MD|MSW|MCL|MC)/.test(t) || t.includes("MDSPWT") || t.includes("MAIDEN")) return "MAIDEN";
+    if(rt==="C" || /^S?CLM/.test(t)) return "CLAIMING";
+    if(rt==="A" || rt==="AO" || rt==="CO" || /^(ALW|AOC|OC)/.test(t)) return "ALLOWANCE";
+    if(["G1","G2","G3","N","NO"].includes(rt) || /^(STK|G1|G2|G3|HCP)/.test(t)) return "STAKES";
+    return "OTHER";
+}
+
+function maidenSubtypeStrength(text, raceType, claiming){
+    const t=normalizedClassText(text);
+    const rt=String(raceType||"").trim().toUpperCase();
+    const c=number(claiming);
+    // MdSpWt/MSW is the top maiden tier. MOC is deliberately close enough
+    // to count as comparable to MSW, while straight maiden claiming remains lower.
+    if(rt==="S" || /^MSW/.test(t) || /^MDSPWT/.test(t) || t.includes("MAIDENSPECIAL")) return 3.0;
+    if(rt==="MO" || /^MOC/.test(t) || /^MOCL/.test(t) || t.includes("MAIDENOPTIONAL")) return 2.5 + Math.min(0.35, c/200000);
+    if(rt==="M" || /^(MCL|MC|MD)/.test(t) || t.includes("MAIDENCLAIM")) return 1.0 + Math.min(1.0, c/100000);
+    return 2.0;
+}
+
+function classProfile(text, raceType, purse, claiming){
+    const family=classFamilyFromText(text,raceType);
+    const money=classStrengthFromValues(purse,claiming);
+    const maiden=family==="MAIDEN" ? maidenSubtypeStrength(text,raceType,claiming) : null;
+    return {family,money,maiden};
+}
+
+function todayClassProfile(horse){
+    return classProfile(horse.currentRaceClass,horse.raceType,horse.purse,horse.claimingPrice);
+}
+
+function ppClassProfile(pp){
+    return classProfile(pp && pp.raceClass,"",pp && pp.purse,pp && pp.claimingPrice);
+}
+
+// Positive means past race was tougher than today's race.
+function classLevelDelta(pastProfile,todayProfile){
+    if(!pastProfile || !todayProfile) return null;
+    if(pastProfile.family==="MAIDEN" && todayProfile.family==="MAIDEN")
+        return pastProfile.maiden - todayProfile.maiden;
+    if(!pastProfile.money || !todayProfile.money) return null;
+    return pastProfile.money - todayProfile.money;
+}
+
 function todayClassStrength(horse){
     return classStrengthFromValues(horse.purse,horse.claimingPrice);
 }
@@ -4119,21 +4175,22 @@ function ppClassStrength(pp){
 }
 
 function classMoveRead(horse){
-    const last=(horse.ppRaces||[]).find(p=>ppClassStrength(p)>0);
-    const now=todayClassStrength(horse);
-    const prev=last ? ppClassStrength(last) : 0;
-    if(!now || !prev) return {label:"UNKNOWN",detail:"insufficient class data"};
-    const delta=now-prev;
-    if(delta>0.75) return {label:"UP",detail:"higher level than last start"};
-    if(delta<-0.75) return {label:"DOWN",detail:"lower level than last start"};
+    const now=todayClassProfile(horse);
+    const last=(horse.ppRaces||[]).find(p=>{
+        const d=classLevelDelta(ppClassProfile(p),now);
+        return d!==null;
+    });
+    if(!last) return {label:"UNKNOWN",detail:"insufficient class data"};
+    const delta=classLevelDelta(ppClassProfile(last),now);
+    if(delta===null) return {label:"UNKNOWN",detail:"insufficient class data"};
+    if(delta>0.75) return {label:"DOWN",detail:"lower level than last start"};
+    if(delta<-0.75) return {label:"UP",detail:"higher level than last start"};
     return {label:"SAME",detail:"about the same level as last start"};
 }
 
 function ppClassLadder(pp,horse){
-    const now=todayClassStrength(horse);
-    const past=ppClassStrength(pp);
-    if(!now || !past) return {label:"?",css:"badge-blue",title:"class comparison unavailable"};
-    const d=past-now;
+    const d=classLevelDelta(ppClassProfile(pp),todayClassProfile(horse));
+    if(d===null) return {label:"?",css:"badge-blue",title:"class comparison unavailable"};
     if(d>0.75) return {label:"▲",css:"badge-red",title:"past race was ABOVE / tougher than today's level"};
     if(d<-0.75) return {label:"▼",css:"badge-green",title:"past race was BELOW / easier than today's level"};
     return {label:"=",css:"badge-blue",title:"past race was about the SAME level as today"};
@@ -4155,14 +4212,16 @@ function surfaceMatchesToday(pp,horse){
 }
 
 function entryLevelFit(horse){
-    const now=todayClassStrength(horse);
+    const nowProfile=todayClassProfile(horse);
     const recent=(horse.ppRaces||[]).slice(0,6)
-        .map(p=>({p, strength:ppClassStrength(p)}))
-        .filter(x=>x.strength>0);
-    if(number(horse.starts)===0 || !recent.length || !now){
+        .map(p=>({p, delta:classLevelDelta(ppClassProfile(p),nowProfile)}))
+        .filter(x=>x.delta!==null);
+    if(number(horse.starts)===0 || !recent.length){
         return {label:"UNKNOWN",detail:"not enough race/class history", comparable:0, competitive:0, surfaceCompetitive:0, avgSpeed:null};
     }
-    const comparable=recent.filter(x=>x.strength >= now-0.75);
+    // Similar or tougher = past level no more than 0.75 below today.
+    // This intentionally lets MOC and MdSpWt evidence count across the maiden family.
+    const comparable=recent.filter(x=>x.delta >= -0.75);
     const competitive=comparable.filter(x=>competitiveAtLevel(x.p));
     const surfaceComparable=comparable.filter(x=>surfaceMatchesToday(x.p,horse));
     const surfaceCompetitive=surfaceComparable.filter(x=>competitiveAtLevel(x.p));
@@ -4546,7 +4605,7 @@ function computeRaceCard(){
         const decision=finalRaceDecision(top,activeField);
         const bestProfile=modelBestBetProfile(scored,activeField);
 
-        // v7.35 restores the v7.30 wager-selection path. paired_final12 is
+        // v7.36 restores the v7.30 wager-selection path. paired_final12 is
         // informational confirmation only; it cannot erase a v7.30 Best Bet.
         const topConsensus=signalConsensus(activeField,top.horse);
         if(bestProfile.qualifies && topConsensus.level!=='uncertain'){
@@ -4916,7 +4975,7 @@ function computeRaceCard(){
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        v7.35 restores the v7.30 Best Races selection path that produced the frozen pre-result picks. HIGH UNCERTAINTY remains a hard veto. The paired_final12 3-of-4 / PP +4 / M/L ≤5/2 / field ≤9 profile is shown only as a HISTORICAL CONFIRMATION badge; it no longer acts as a hard gate that can erase otherwise qualified v7.30 selections.
+        v7.36 restores the v7.30 Best Races selection path that produced the frozen pre-result picks. HIGH UNCERTAINTY remains a hard veto. The paired_final12 3-of-4 / PP +4 / M/L ≤5/2 / field ≤9 profile is shown only as a HISTORICAL CONFIRMATION badge; it no longer acts as a hard gate that can erase otherwise qualified v7.30 selections.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
@@ -6171,6 +6230,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.35 · iPhone/Safari build 2026-09-09</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.36 · iPhone/Safari build 2026-09-09</div>
 </body>
 </html>
