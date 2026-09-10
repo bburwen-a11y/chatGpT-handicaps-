@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.28 · September 9, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.29 · September 9, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -710,7 +710,44 @@ tbody input:focus{
     text-decoration:none;
   }
   .race-number-link:hover{ background:#e5e7eb; }
-  .race-anchor-target{ scroll-margin-top:80px; }
+  .race-anchor-target{ scroll-margin-top:118px; }
+  .race-jump-bar{
+    position:sticky;
+    top:0;
+    z-index:40;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    padding:8px 8px;
+    margin:0 0 12px;
+    background:rgba(247,241,222,.97);
+    border:1px solid var(--paper-line);
+    border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,.08);
+  }
+  .race-jump-label{
+    flex:0 0 auto;
+    font-weight:800;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-right:2px;
+  }
+  .race-jump-btn{
+    flex:0 0 auto;
+    min-width:34px;
+    height:34px;
+    padding:0 9px;
+    border:1px solid #6b7280;
+    border-radius:8px;
+    background:#fff;
+    color:var(--ink);
+    font-weight:800;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .race-jump-btn:active{ transform:translateY(1px); }
 
 
   .hist-confirm{
@@ -808,9 +845,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.28</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.29</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.28 tightens the Decision Board so HIGH UNCERTAINTY cannot be labeled BEST BET, uses Signal Consensus as a real bet-quality control, and identifies the strongest race on the card. An independent frozen cross-check remains active internally but is no longer shown as a message. Parser/RSS/H2H/PP behavior, entry-level logic, pace projection, and surface-change recomputation are preserved.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.29 adds an always-available race-number jump bar in Full Race Cards, Decision Board, and Contenders so any race can be opened instantly without scrolling. HIGH UNCERTAINTY remains a hard veto against BEST BET, Signal Consensus remains a bet-quality control, and the strongest race on the card remains identified. Parser/RSS/H2H/PP behavior, entry-level logic, pace projection, and surface-change recomputation are preserved.
 </p>
 </header>
 
@@ -4247,6 +4284,32 @@ function fieldTableHTML(raceNum,field,scored,classMap,liveOnly=false){
 
 
 
+function raceJumpBarHTML(raceKeys,section){
+    return `<div class="race-jump-bar" aria-label="Jump to race">
+      <span class="race-jump-label">GO TO RACE</span>
+      ${raceKeys.map(r=>`<button type="button" class="race-jump-btn" onclick="jumpToRace('${safe(section)}','${safe(r)}')">${safe(r)}</button>`).join('')}
+    </div>`;
+}
+
+function jumpToRace(section,raceNum){
+    activeRaceNumber=Number(raceNum);
+    let target=null;
+    if(section==='card'){
+        showTab('card');
+        const prefix=raceCardView==='full'?'race-full-':'race-live-';
+        target=document.getElementById(prefix+raceNum) ||
+               document.getElementById(`race-live-${raceNum}`) ||
+               document.getElementById(`race-full-${raceNum}`);
+    }else if(section==='best'){
+        showTab('best');
+        target=document.getElementById(`decision-race-${raceNum}`);
+    }else{
+        showTab('analysis');
+        target=document.getElementById(`contenders-race-${raceNum}`);
+    }
+    if(target) target.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 function goToRaceCard(raceNum){
     activeRaceNumber=Number(raceNum);
     showTab("card");
@@ -4846,7 +4909,7 @@ function computeRaceCard(){
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        v7.28 uses SIGNAL CONSENSUS as a bet-quality control. HIGH CONSENSUS means the top horse is #1 on at least 3 usable core measures: Prime Power, Last Speed, Best Speed and Avg-3 Speed. HIGH UNCERTAINTY is now a hard veto against BEST BET. The strongest eligible race on the card is also marked STRONGEST PICK on the Decision Board. An independent frozen cross-check continues to run internally without displaying comparison messages.
+        v7.29 uses SIGNAL CONSENSUS as a bet-quality control. HIGH CONSENSUS means the top horse is #1 on at least 3 usable core measures: Prime Power, Last Speed, Best Speed and Avg-3 Speed. HIGH UNCERTAINTY is now a hard veto against BEST BET. The strongest eligible race on the card is also marked STRONGEST PICK on the Decision Board.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
@@ -4865,6 +4928,7 @@ function computeRaceCard(){
 
     $("bestSection").innerHTML = `
 
+        ${raceJumpBarHTML(raceKeys,"best")}
         ${betRaceSummary}
         <div class="bestof">
 
@@ -4896,6 +4960,7 @@ function computeRaceCard(){
 
 
     $("cardSection").innerHTML = `
+        ${raceJumpBarHTML(raceKeys,"card")}
         <h2>Full Race Cards</h2>
         <p class="note"><b>FULL FIELD</b> keeps every runner. <b>LIVE FIELD</b> removes only horses that earned Pretender status from negative past-performance evidence. First-time starters and uncertain horses remain as Questionable.</p>
         <div class="field-view-toggle"><button data-view="full" onclick="setRaceCardView('full')">FULL FIELD</button><button class="on" data-view="live" onclick="setRaceCardView('live')">LIVE FIELD — HIDE PRETENDERS</button></div>
@@ -4905,6 +4970,7 @@ function computeRaceCard(){
 
 
     $("analysisSection").innerHTML = `
+        ${raceJumpBarHTML(raceKeys,"analysis")}
 
         <h2>
             Contenders / Questionable / Pretenders
@@ -6082,6 +6148,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.28 · iPhone/Safari build 2026-09-09</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.29 · iPhone/Safari build 2026-09-09</div>
 </body>
 </html>
