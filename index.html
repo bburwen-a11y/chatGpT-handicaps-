@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.34 · September 9, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.35 · September 9, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -822,9 +822,9 @@ tbody input:focus{
 
 <header>
 <p class="eyebrow">Professional Handicapping & Value Engine</p>
-<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.34</span></h1>
+<h1>Horse Handicap <span style="font-family:var(--mono);font-size:.34em;vertical-align:middle;opacity:.8;">v7.35</span></h1>
 <p class="tagline">
-BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.34 keeps the restored v7.30 DRF/RSS parser path and aligns Best Bets to the paired_final12 validation. The Best Bet candidate is now the #1 Prime Power horse itself, even when the separate weighted model ranks another horse first. A Best Bet requires #1 Prime Power, at least 3 of 4 core measures ranked #1, a Prime Power edge of 4.0+, morning line 5/2 or lower, and 9 or fewer active runners. Pace, maiden status, surface evidence, and broad data-quality labels are confidence modifiers rather than automatic eliminators. The former 2-point STANDARD gate was removed because it did not hold up in paired_final12.
+BRIS Single File parser + field-relative win-ranking engine using Prime Power, BRIS speed/pace, class, recent form, trainer/jockey, T/J combo, run style, workouts, surface/distance fit and value. Built for iPhone/Safari. v7.35 restores the v7.30 Best Races selection path that produced the frozen pre-result picks, while keeping the later projected-pace field fix. HIGH UNCERTAINTY remains a hard veto against BEST BET. paired_final12 is now used only as an optional historical confirmation badge; it does not erase a v7.30-qualified wager.
 </p>
 </header>
 
@@ -3595,7 +3595,7 @@ function consensusBadgeHTML(field,horse){
     return `<span class="badge ${cls}">${safe(c.label)} · ${c.wins}/${c.usable}</span>`;
 }
 
-// v7.34 balanced validation gates: pace/maiden/surface are modifiers, not automatic vetoes.
+// v7.35 balanced validation gates: pace/maiden/surface are modifiers, not automatic vetoes.
 function primePowerGap(field,horse){
     const active=(field||[]).filter(h=>!h.scratched);
     const vals=active.map(h=>({h,v:number(h.score||h.primePower)})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
@@ -3741,61 +3741,49 @@ function raceBetQualityHTML(field, modelTopHorse){
 }
 
 function modelBestBetProfile(scored,field){
-    if(!scored || !scored.length) return {qualifies:false,tier:null,reasons:[],softWarnings:[],candidateItem:null};
+    if(!scored || !scored.length) return {qualifies:false,reasons:[]};
     const active=(field||[]).filter(h=>!h.scratched);
-
-    // v7.34: paired_final12 was validated by starting with the #1 Prime Power horse.
-    // Do not require the separate weighted model's #1 horse to also be the PP leader.
-    const ppOrdered=active
-        .map(h=>({h,v:number(h.score||h.primePower)}))
-        .filter(x=>x.v>0)
-        .sort((a,b)=>b.v-a.v);
-    const candidateHorse=ppOrdered.length ? ppOrdered[0].h : scored[0].horse;
-    const candidateItem=scored.find(x=>String(x.horse.id)===String(candidateHorse.id)) || scored[0];
-    const horse=candidateItem.horse;
+    const top=scored[0];
+    const second=scored[1];
+    const horse=top.horse;
     const reasons=[];
-    const softWarnings=[];
-    const quality=candidateItem.components?.quality || dataQuality(horse);
-    const consensus=signalConsensus(active,horse);
-    const pp=primePowerGap(active,horse);
-    const ml=oddsDecimal(horse.odds);
-    const pace=paceGateInfo(active);
+
     const raceLabel=raceTypeLabel(horse.raceType).toLowerCase();
     const maiden=raceLabel.includes("maiden");
+    const quality=top.components?.quality || dataQuality(horse);
+    const separation=second ? (top.probability-second.probability) : top.probability;
+    const structural=raceDecision(top,active);
     const surfGroup=surfaceGroup(horse.currentSurface);
     const turf=turfProofStatus(horse);
     const surfaceOK=surfGroup!=="T" || turf.code==="PROVEN" || turf.code==="COMPETITIVE";
 
-    // The historical gate itself. These are the only Best Bet requirements tested
-    // against paired_final12. Do not add secondary vetoes that were not part of that test.
-    if(consensus.level!=="high") reasons.push("fewer than 3 of 4 core measures are #1");
-    if(!pp.leader) reasons.push("not #1 Prime Power");
-    if(pp.gap===null || pp.gap<4) reasons.push(pp.gap===null ? "Prime Power separation unavailable" : `Prime Power advantage ${pp.gap.toFixed(1)} is below 4.0`);
-    if(ml===null) reasons.push("morning line unavailable");
-    else if(ml>2.5) reasons.push(`morning line ${horse.odds} is above 5/2`);
-    if(active.length>9) reasons.push(`${active.length}-horse field is above 9`);
-    if(number(horse.currentDistance)>3000) reasons.push("specialty or jump-distance race");
+    if(maiden) reasons.push("maiden race");
+    if(quality.label!=="COMPLETE") reasons.push("core data not complete");
+    if(top.probability<0.50) reasons.push("model share below 50%");
+    if(separation<0.25) reasons.push("model separation below 25 points");
+    if(structural.pass) reasons.push(...structural.reasons);
+    if(!surfaceOK) reasons.push("surface evidence not proven/competitive");
+    const consensus=signalConsensus(active,horse);
+    if(consensus.level==='uncertain') reasons.push("high signal uncertainty");
 
-    // Modifiers only — useful to explain confidence, never to erase a historically
-    // qualified Best Bet on their own.
-    if(quality.label!=="COMPLETE") softWarnings.push(`data quality ${quality.label.toLowerCase()}`);
-    if(maiden) softWarnings.push("maiden race");
-    if(!pace.usable) softWarnings.push("projected pace evidence limited");
-    if(!surfaceOK) softWarnings.push("surface evidence unproven");
-    const fts=active.filter(isFirstTimeStarterForQuality).length;
-    if(fts>0) softWarnings.push(`${fts} first-time starter${fts===1?'':'s'}`);
+    // v7.28 keeps the separated model profile, but HIGH UNCERTAINTY is a veto.
+    // This prevents a race like Race 5 / Doctrine from being labeled BEST BET
+    // while the same board says the evidence does not agree.
+    // This restores the pre-result profile that identified the strongest
+    // non-maiden model leaders on SAR07 without using race results.
+    const qualifies =
+        !maiden &&
+        quality.label==="COMPLETE" &&
+        top.probability>=0.50 &&
+        separation>=0.25 &&
+        !structural.pass &&
+        surfaceOK &&
+        consensus.level!=='uncertain';
 
-    const qualifies=reasons.length===0;
-    const modelRank=scored.findIndex(x=>String(x.horse.id)===String(horse.id))+1;
-    return {
-        qualifies,
-        tier:qualifies?"strong":null,
-        reasons:[...new Set(reasons)],
-        softWarnings:[...new Set(softWarnings)],
-        quality,surfaceOK,consensus,ppGap:pp.gap,ppRank:pp.rank,ml,
-        fieldSize:active.length,pace,maiden,candidateHorse:horse,candidateItem,
-        candidateProbability:candidateItem.probability,modelRank
-    };
+    const pp=primePowerGap(active,horse);
+    const ml=oddsDecimal(horse.odds);
+    const historicalGate = consensus.level==='high' && pp.leader && pp.gap!==null && pp.gap>=4 && ml!==null && ml<=2.5 && active.length<=9;
+    return {qualifies,reasons,separation,quality,surfaceOK,consensus,ppGap:pp.gap,ppRank:pp.rank,historicalGate};
 }
 function finalRaceDecision(top,field){
     const structural=raceDecision(top,field);
@@ -3830,7 +3818,7 @@ function openProbability(raceNum){
       <div class="metric-line"><b>${safe(d.horse)}</b> · Rank ${d.rank} of ${d.fieldSize}</div>
       <div class="metric-line">Data quality: <b>${safe(d.quality.label)}</b> (${d.quality.present}/${d.quality.total} core inputs)</div>
       <div class="metric-line">Decision: <b>${safe(d.decision.label || (d.pass ? "PASS" : "REVIEW"))}</b> · Morning-line rank ${d.marketRank || "N/A"}</div>
-      ${d.bestProfile?.qualifies ? `<div class="metric-line"><b>VALIDATED BEST BET:</b> #${safe(d.bestProfile.candidateHorse?.post)} ${safe(d.bestProfile.candidateHorse?.horse)} clears the paired_final12 gate with PP +${Number(d.bestProfile.ppGap||0).toFixed(1)}.</div>` : ""}
+      ${d.bestProfile?.qualifies ? `<div class="metric-line"><b>MODEL BEST BET:</b> complete-data non-maiden leader with ${(d.probability*100).toFixed(1)}% model share and ${(d.bestProfile.separation*100).toFixed(1)}-point separation.</div>` : ""}
       ${d.recentSpeedConfirmed?.confirmed ? `<div class="metric-line"><b>Recent Speed Confirmed:</b> ${safe(d.recentSpeedConfirmed.text)}</div>` : ""}
       ${d.performanceSupport ? `<div class="metric-line"><b>Performance + earnings:</b> ${safe(d.performanceSupport.label)} — ${safe(d.performanceSupport.text)}</div>` : ""}
       ${d.raceQuality ? `<div class="metric-line"><b>Race Bet Quality:</b> ${safe(d.raceQuality.label)} — ${safe(d.raceQuality.text)}</div>` : ""}
@@ -4558,32 +4546,19 @@ function computeRaceCard(){
         const decision=finalRaceDecision(top,activeField);
         const bestProfile=modelBestBetProfile(scored,activeField);
 
-        // v7.34: Best Bet qualification is evaluated on the #1 Prime Power horse,
-        // matching the paired_final12 validation instead of forcing the weighted model's
-        // #1 horse to satisfy a different rule.
+        // v7.35 restores the v7.30 wager-selection path. paired_final12 is
+        // informational confirmation only; it cannot erase a v7.30 Best Bet.
         const topConsensus=signalConsensus(activeField,top.horse);
-        const bestBetHorse=bestProfile.candidateHorse || top.horse;
-        const bestBetIsModelTop=String(bestBetHorse.id)===String(top.horse.id);
-        if(bestProfile.qualifies && bestBetIsModelTop){
+        if(bestProfile.qualifies && topConsensus.level!=='uncertain'){
             decision.pass=false;
-            decision.label="BEST BET — VALIDATED";
+            decision.label="BEST BET";
             decision.reasons=[];
-            const paceText=bestProfile.pace?.usable ? `PACE ${bestProfile.pace.projection.label}` : "PACE LIMITED";
-            const warningText=bestProfile.softWarnings?.length ? ` · CAUTION: ${bestProfile.softWarnings.join(', ')}` : "";
-            decision.quality={...decision.quality,level:"strong",label:decision.label,
-                text:`paired_final12 gate · 3/4+ core consensus · PP +${bestProfile.ppGap.toFixed(1)} · M/L ${bestBetHorse.odds} · ${activeField.length} horses · ${paceText}${warningText}.`};
-        }else if(bestProfile.qualifies && !bestBetIsModelTop){
-            decision.pass=false;
-            decision.label="MODEL TOP — BEST BET IS PP LEADER";
-            decision.reasons=[];
-            decision.quality={...decision.quality,level:"standard",label:decision.label,
-                text:`The weighted model ranks ${top.horse.horse} first, but the paired_final12 Best Bet gate qualifies #${bestBetHorse.post} ${bestBetHorse.horse}: 3/4+ core consensus · PP +${bestProfile.ppGap.toFixed(1)} · M/L ${bestBetHorse.odds} · ${activeField.length} horses.`};
-        }else if(!decision.pass){
-            decision.label="CONTENDER — NO BET";
-            decision.reasons=[...bestProfile.reasons];
-            const why=[...bestProfile.reasons,...bestProfile.softWarnings].filter(Boolean);
-            decision.quality={...decision.quality,label:"CONTENDER — NO BET",
-                text:`Top-ranked contender, but no horse clears the paired_final12 Best Bet gate: ${why.join('; ') || 'insufficient separation/confirmation'}.`};
+            decision.quality={
+                ...decision.quality,
+                level:"strong",
+                label:"BEST BET",
+                text:`Complete-data non-maiden model leader with ${(top.probability*100).toFixed(1)}% model share and ${(bestProfile.separation*100).toFixed(1)}-point separation. Performance + Earnings remains supporting evidence, not a veto.`
+            };
         }
 
 
@@ -4630,26 +4605,21 @@ function computeRaceCard(){
 
         const betQ=decision.quality;
         const perfSupport=performanceEarningsSupport(activeField,top.horse);
-        const betItem=bestProfile.qualifies ? bestProfile.candidateItem : top;
-        const betHorse=betItem.horse;
-        const betConsensus=signalConsensus(activeField,betHorse);
-        const betPerfSupport=performanceEarningsSupport(activeField,betHorse);
         betRaceRows.push({
-            race:String(raceNum), horse:betHorse, quality:bestProfile.qualifies ? {...betQ,level:"strong",label:"BEST BET — VALIDATED",
-                text:`paired_final12 gate · 3/4+ core consensus · PP +${bestProfile.ppGap.toFixed(1)} · M/L ${betHorse.odds} · ${activeField.length} horses.`} : betQ,
-            pass:bestProfile.qualifies ? false : passFlag, close:closeRace, marketRank,
-            speedConfirmed:speedConfirmedInfo(activeField,betHorse).confirmed,
-            recentSpeedConfirmed:recentSpeedConfirmedInfo(activeField,betHorse),
+            race:String(raceNum), horse:top.horse, quality:betQ,
+            pass:passFlag, close:closeRace, marketRank,
+            speedConfirmed:speedConfirmedInfo(activeField,top.horse).confirmed,
+            recentSpeedConfirmed:recentSpeedConfirmedInfo(activeField,top.horse),
             bestProfile,
             ppGap:bestProfile.ppGap,
-            paceGate:bestProfile.pace,
-            probability:betItem.probability,
-            separation:second ? Math.max(0,betItem.probability-second.probability) : betItem.probability,
-            performanceSupport:betPerfSupport,
+            historicalGate:bestProfile.historicalGate,
+            probability:top.probability,
+            separation:bestProfile.separation,
+            performanceSupport:perfSupport,
             activeFieldSize:activeField.length,
-            consensus:betConsensus,
-            dominance:coreDominanceScore(activeField,betHorse),
-            hiddenCheckAdjustment:hiddenCheckAdjustment(activeField,betHorse)
+            consensus:signalConsensus(activeField,top.horse),
+            dominance:coreDominanceScore(activeField,top.horse),
+            hiddenCheckAdjustment:hiddenCheckAdjustment(activeField,top.horse)
         });
 
 
@@ -4795,11 +4765,6 @@ function computeRaceCard(){
                 Morning-line rank: <b>${marketRank || "N/A"}</b>
             </div>
             ${top.horse.surfaceChanged ? `<div class="warning-box"><b>Weather/surface change:</b> ${safe(surfaceLabel(top.horse.originalSurface))} → ${safe(surfaceLabel(top.horse.currentSurface))}. Surface Fit, condition fit, surface-specific Best Speed, rankings and probabilities were recomputed.</div>` : ``}
-
-
-            ${bestProfile.qualifies && String(bestProfile.candidateHorse.id)!==String(top.horse.id)
-                ? `<div class="hist-confirm"><span class="hist-tag">VALIDATED BEST BET</span><b>#${safe(bestProfile.candidateHorse.post)} ${safe(bestProfile.candidateHorse.horse)}</b> · model rank ${bestProfile.modelRank} · PP +${bestProfile.ppGap.toFixed(1)} · M/L ${safe(bestProfile.candidateHorse.odds)}. The weighted-model top horse remains shown above for comparison.</div>`
-                : ``}
             ${recentSpeedConfirmedHTML(activeField, top.horse)}
             ${performanceEarningsHTML(activeField, top.horse)}
             ${bestProfile.qualifies
@@ -4933,18 +4898,31 @@ function computeRaceCard(){
 
     const bestBetRaces=rankedBetRaces.filter(x=>
         !x.horse.scratched &&
-        x.bestProfile?.qualifies
+        !x.close &&
+        x.consensus?.level!=='uncertain' &&
+        (
+            x.bestProfile?.qualifies ||
+            (
+                !x.pass &&
+                (x.quality.level==="strong" || (x.quality.level==="standard" && x.recentSpeedConfirmed?.confirmed)) &&
+                (
+                    x.performanceSupport?.level==="strong" ||
+                    x.performanceSupport?.level==="solid" ||
+                    x.consensus?.level==='high'
+                )
+            )
+        )
     );
     const betRaceSummary = `<div class="bestof" style="margin-bottom:16px;">
       <h3>Best Races to Bet</h3>
       <p style="font-size:12px;color:var(--ink-soft);line-height:1.5;">
-        v7.34 uses the paired_final12 Best Bet gate directly: start with the #1 Prime Power horse, require #1 on at least 3 of 4 core measures, a 4.0+ Prime Power edge, M/L 5/2 or lower, and 9 or fewer active runners. In paired_final12 this produced 38 selections and 26 winners (68.4%) with approximately +23.6% flat-win ROI. The former 2-point STANDARD gate is no longer a Best Bet because it fell to 33/69 (47.8%) with negative ROI. Pace, maiden status, surface evidence and first-time starters remain visible as cautions, not extra vetoes.
+        v7.35 restores the v7.30 Best Races selection path that produced the frozen pre-result picks. HIGH UNCERTAINTY remains a hard veto. The paired_final12 3-of-4 / PP +4 / M/L ≤5/2 / field ≤9 profile is shown only as a HISTORICAL CONFIRMATION badge; it no longer acts as a hard gate that can erase otherwise qualified v7.30 selections.
       </p>
       ${bestBetRaces.length ? bestBetRaces.map((x,i)=>`
         <div class="best-pick" style="padding:10px 12px;margin:8px 0;">
           <b>#${i+1} · Race ${safe(x.race)} — ${safe(x.horse.horse)}</b>
           ${strongestRace && String(strongestRace.race)===String(x.race)?'<span class="badge badge-green">STRONGEST PICK</span>':''}
-          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET — VALIDATED":x.quality.label)}</span>
+          <span class="badge ${x.quality.level==="strong"?"badge-green":"badge-blue"}">${safe(x.bestProfile?.qualifies?"BEST BET":x.quality.label)}</span>
           ${x.recentSpeedConfirmed?.confirmed?'<span class="badge badge-green">RECENT SPEED CONFIRMED</span>':''}
           ${x.speedConfirmed?'<span class="badge badge-green">SPEED CONFIRMED</span>':''}
           ${x.consensus?`<span class="badge ${x.consensus.level==='high'?'badge-green':(x.consensus.level==='mixed'?'badge-blue':'badge-red')}">${safe(x.consensus.label)}</span>`:''}
@@ -4954,7 +4932,7 @@ function computeRaceCard(){
           ${x.paceGate?.projection?`<span class="badge badge-blue">PACE ${safe(x.paceGate.projection.label)}</span>`:''}
           <div class="metric-line">${safe(x.quality.text)}</div>
         </div>`).join("") :
-        '<div class="warning-box"><b>No race qualifies under the paired_final12 Best Bet gate today.</b> Treat the remaining races as caution/pass rather than forcing a wager.</div>'}
+        '<div class="warning-box"><b>No race qualifies under the restored v7.30 Best Races logic today.</b> Review contenders, but do not force a wager.</div>'}
     </div>`;
 
     $("bestSection").innerHTML = `
@@ -6193,6 +6171,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.34 · iPhone/Safari build 2026-09-09</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.35 · iPhone/Safari build 2026-09-09</div>
 </body>
 </html>
