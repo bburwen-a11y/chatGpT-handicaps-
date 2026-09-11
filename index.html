@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.40 · September 10, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.41 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -2119,8 +2119,85 @@ function normalizeYmd(value){
     return "";
 }
 
+
+function feedWordNumber(text){
+    const words=String(text||"").toLowerCase().replace(/-/g," ").trim().split(/\s+/).filter(Boolean);
+    const ones={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,
+        eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+    const tens={twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+    let n=0, seen=false;
+    words.forEach(w=>{
+        if(ones[w]!==undefined){ n+=ones[w]; seen=true; }
+        else if(tens[w]!==undefined){ n+=tens[w]; seen=true; }
+        else if(w==="hundred"){ n=(n||1)*100; seen=true; }
+    });
+    return seen ? n : null;
+}
+
+function feedMixedNumber(text){
+    let t=String(text||"").toLowerCase().replace(/-/g," ").replace(/\s+/g," ").trim();
+    const fractions=[
+        ["three quarters",.75],["three fourths",.75],["seven eighths",.875],
+        ["five eighths",.625],["three eighths",.375],["one half",.5],
+        ["one quarter",.25],["one fourth",.25],["three sixteenths",.1875],
+        ["one sixteenth",.0625],["one eighth",.125]
+    ];
+    let frac=0;
+    for(const [phrase,val] of fractions){
+        if(t.includes(phrase)){
+            frac=val;
+            t=t.replace(phrase," ").replace(/\band\b/g," ").replace(/\s+/g," ").trim();
+            break;
+        }
+    }
+    const whole=feedWordNumber(t);
+    return (whole!==null ? whole : 0) + frac;
+}
+
+function feedDistanceToYards(text){
+    const t=String(text||"").toLowerCase().replace(/,/g," ").replace(/\s+/g," ").trim();
+    if(!t) return null;
+
+    // Numeric forms, if the feed ever uses them.
+    let m=t.match(/(\d+(?:\.\d+)?)\s*miles?/);
+    let total=0, found=false;
+    if(m){ total+=parseFloat(m[1])*1760; found=true; }
+    m=t.match(/(\d+(?:\.\d+)?)\s*furlongs?/);
+    if(m){ total+=parseFloat(m[1])*220; found=true; }
+    m=t.match(/(\d+(?:\.\d+)?)\s*yards?/);
+    if(m){ total+=parseFloat(m[1]); found=true; }
+    if(found) return Math.round(total);
+
+    // Equibase prose, e.g. "One Mile And Seventy Yards" or
+    // "Seven And One Half Furlongs".
+    const mileMatch=t.match(/^(.+?)\s+miles?\b(.*)$/);
+    if(mileMatch){
+        const miles=feedMixedNumber(mileMatch[1]);
+        total=miles*1760;
+        const rest=mileMatch[2]||"";
+        const yardMatch=rest.match(/\band\s+(.+?)\s+yards?\b/);
+        if(yardMatch){
+            const y=feedWordNumber(yardMatch[1]);
+            if(y!==null) total+=y;
+        }
+        return Math.round(total);
+    }
+
+    const furlongMatch=t.match(/^(.+?)\s+furlongs?\b/);
+    if(furlongMatch){
+        return Math.round(feedMixedNumber(furlongMatch[1])*220);
+    }
+
+    const yardMatch=t.match(/^(.+?)\s+yards?\b/);
+    if(yardMatch){
+        const y=feedWordNumber(yardMatch[1]);
+        return y===null ? null : Math.round(y);
+    }
+    return null;
+}
+
 function parseEquibaseChanges(raw){
-    const out={track:"",feedDate:"",feedYmd:"",scratches:[],riders:[],conditions:[],surfaces:[]};
+    const out={track:"",feedDate:"",feedYmd:"",scratches:[],riders:[],conditions:[],surfaces:[],distances:[]};
 
     const title=raw.match(/<title>\s*Equibase\s+([A-Z0-9]{2,5})\s+Changes/i);
     if(title) out.track=title[1].toUpperCase();
@@ -2181,6 +2258,25 @@ function parseEquibaseChanges(raw){
                 out.riders.push({race,post,horse:m[2].trim(),from:m[3].trim(),to:m[4].trim()});
             }
             return;
+        }
+
+
+        // Equibase can change distance when a race is moved off turf.
+        // Store the NEW distance in yards so all distance-fit calculations
+        // recompute from the actual conditions.
+        const distanceText=body.replace(/\s+/g," ").trim();
+        const dcm=distanceText.match(/\bDistance\s*-\s*(.+?)\s+changed\s+to\s+(.+)$/i);
+        if(dcm){
+            const newYards=feedDistanceToYards(dcm[2]);
+            if(newYards){
+                out.distances.push({
+                    race,
+                    distance:newYards,
+                    from:dcm[1].trim(),
+                    to:dcm[2].trim(),
+                    text:distanceText
+                });
+            }
         }
 
         // Surface changes are common when weather takes a race off the turf.
@@ -2309,6 +2405,28 @@ function applyRSS(raw,fileName="Pasted Content"){
         if(r.surfaceChanged) surfaceCount++;
     });
 
+    // Apply official distance changes from the feed. These are race-wide
+    // changes, so every active/scratched row in that race receives the same
+    // currentDistance and the card recomputes from the new distance.
+    let distanceCount=0;
+    const distanceByRace={};
+    feed.distances.forEach(dc=>{
+        distanceByRace[String(number(dc.race))]=dc;
+    });
+    const changedDistanceRaces=new Set();
+    rows.forEach(r=>{
+        const dc=distanceByRace[String(number(r.race))];
+        if(!dc) return;
+        if(!r.originalDistance) r.originalDistance=r.currentDistance || 0;
+        const before=Math.round(number(r.currentDistance));
+        const after=Math.round(number(dc.distance));
+        r.currentDistance=after;
+        r.distanceChangeText=dc.text || "";
+        r.distanceChanged=!!(before && after && before!==after);
+        if(r.distanceChanged) changedDistanceRaces.add(String(number(r.race)));
+    });
+    distanceCount=changedDistanceRaces.size;
+
     // Keep late condition notes by race and use them in condition-fit recomputation.
     trackConditions={};
     feed.conditions.forEach(c=>{
@@ -2327,16 +2445,16 @@ function applyRSS(raw,fileName="Pasted Content"){
     $("rssFileName").textContent=fileName;
     $("rssFileDate").textContent=feed.feedDate || "Not specified";
     $("rssItemCount").textContent=
-        feed.scratches.length + feed.riders.length + feed.conditions.length + feed.surfaces.length;
+        feed.scratches.length + feed.riders.length + feed.conditions.length + feed.surfaces.length + feed.distances.length;
     $("rssMetaBox").classList.add("show");
 
     renderRows();
 
-    let msg=`Applied ${scratchCount} scratch(es), ${jockeyCount} jockey change(s), and ${surfaceCount} runner surface update(s)`;
+    let msg=`Applied ${scratchCount} scratch(es), ${jockeyCount} jockey change(s), ${surfaceCount} runner surface update(s), and ${distanceCount} race distance change(s)`;
     if(unmatchedScratches.length) msg+=`; ${unmatchedScratches.length} scratch(es) had no matching race/post`;
     if(unmatchedRiders.length) msg+=`; ${unmatchedRiders.length} rider change(s) had no matching race/post`;
-    if(!feed.scratches.length && !feed.riders.length && !feed.surfaces.length && !feed.conditions.length){
-        msg+=". No scratches, rider changes, surface changes, or track-condition changes were found in this feed yet";
+    if(!feed.scratches.length && !feed.riders.length && !feed.surfaces.length && !feed.conditions.length && !feed.distances.length){
+        msg+=". No scratches, rider changes, surface changes, distance changes, or track-condition changes were found in this feed yet";
     } else {
         msg+=".";
     }
@@ -6330,6 +6448,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.40 · iPhone/Safari build 2026-09-10</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.41 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
