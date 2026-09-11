@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.39 · September 10, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.40 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -5487,7 +5487,7 @@ function renderH2HGroup(group){
 function topPickH2HContext(field, topHorse, race){
   const z={hasLoss:false,strong:false};
   if(!topHorse) return z;
-  const ts=normalizeSurface(race?.surface||race?.surfaceType||"");
+  const ts=surfaceGroup(race?.surface||race?.surfaceType||topHorse?.currentSurface||"");
   const td=number(race?.distanceFurlongs||race?.distance||0);
   currentRaceH2HGroups(field||[]).forEach(g=>{
     const me=g.runners.find(x=>x.horse?.id===topHorse.id);
@@ -5498,7 +5498,7 @@ function topPickH2HContext(field, topHorse, race){
       const of=h2hFinishNumber(o.pp.fin);
       if(of!==null && of<mf){
         z.hasLoss=true;
-        const ps=normalizeSurface(me.pp.surface||me.pp.surf||me.pp.trackSurface||"");
+        const ps=surfaceGroup(me.pp.surface||me.pp.surf||me.pp.trackSurface||"");
         const pd=number(me.pp.distanceFurlongs||me.pp.distance||me.pp.dist||0);
         if(ts&&ps&&ts===ps&&td&&pd&&Math.abs(td-pd)<=1) z.strong=true;
       }
@@ -6330,6 +6330,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.39 · iPhone/Safari build 2026-09-10</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.40 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
