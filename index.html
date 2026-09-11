@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.41 · September 10, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.42 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -5072,7 +5072,7 @@ function computeRaceCard(){
                number(a.race)-number(b.race);
     });
     const strongestRace=betRaceRows
-        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level==='high' && !topPickHasStrongH2HLoss(x.activeField,x.horse,x))
+        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level==='high' && independentConditionConfirmation(x).confirmed && !topPickHasStrongH2HLoss(x.activeField,x.horse,x))
         .map(x=>({...x,cardStrength:cardStrengthScore(x)}))
         .sort((a,b)=>b.cardStrength-a.cardStrength)[0] || null;
 
@@ -5090,6 +5090,7 @@ function computeRaceCard(){
         !x.close &&
         !x.pass &&
         x.consensus?.level==='high' &&
+        independentConditionConfirmation(x).confirmed &&
         !topPickHasStrongH2HLoss(x.activeField,x.horse,x) &&
         (
             x.bestProfile?.qualifies ||
@@ -5118,6 +5119,7 @@ function computeRaceCard(){
           ${x.ppGap!==null && x.ppGap!==undefined?`<span class="badge badge-green">PP +${x.ppGap.toFixed(1)}</span>`:''}
           ${x.paceGate?.projection?`<span class="badge badge-blue">PACE ${safe(x.paceGate.projection.label)}</span>`:''}
           <div class="metric-line">${safe(x.quality.text)}</div>
+          <div class="metric-line"><b>INDEPENDENT CONDITIONS CONFIRMED</b> · ${safe(independentConditionConfirmation(x).notes.join(" · "))}</div>
           ${topPickH2HWarning(x.activeField,x.horse,x)}
         </div>`).join("") :
         '<div class="warning-box"><b>No race qualifies under the restored v7.30 Best Races logic today.</b> Review contenders, but do not force a wager.</div>'}
@@ -5601,6 +5603,40 @@ function renderH2HGroup(group){
 
 }
 
+
+
+function independentConditionConfirmation(race){
+    const h=race?.horse || {};
+    const field=race?.activeField || [];
+    let positives=0, negatives=0, notes=[];
+
+    // These are deliberately outside the four core PP/speed votes.
+    const pace=paceFit(h,field);
+    const cls=classFit(h,field);
+    const surface=percentileRank(surfaceSpeedScore(h),field.map(surfaceSpeedScore));
+    const condition=percentileRank(conditionSpeedScore(h),field.map(conditionSpeedScore));
+
+    if(cls>=0.60){ positives++; notes.push("class"); }
+    else if(cls<0.35){ negatives++; notes.push("class weak"); }
+
+    if(pace>=0.60){ positives++; notes.push("pace"); }
+    else if(pace<0.35){ negatives++; notes.push("pace mismatch"); }
+
+    if(surface>=0.60 || condition>=0.60){ positives++; notes.push("surface/condition"); }
+    else if(surface<0.35 && condition<0.35){ negatives++; notes.push("surface/condition weak"); }
+
+    const h2h=topPickH2HContext(field,h,race);
+    if(h2h.strong){ negatives+=2; notes.push("strong H2H"); }
+    else if(h2h.hasLoss){ negatives++; notes.push("H2H caution"); }
+
+    const changed=field.some(x=>x.surfaceChanged || x.distanceChanged);
+    if(changed){ negatives++; notes.push("official surface/distance change"); }
+
+    return {
+        positives, negatives, notes,
+        confirmed: positives>=2 && negatives===0
+    };
+}
 
 function topPickH2HContext(field, topHorse, race){
   const z={hasLoss:false,strong:false};
@@ -6448,6 +6484,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.41 · iPhone/Safari build 2026-09-10</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.42 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
