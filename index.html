@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.38 · September 10, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.39 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -4954,7 +4954,7 @@ function computeRaceCard(){
                number(a.race)-number(b.race);
     });
     const strongestRace=betRaceRows
-        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level==='high' && !topPickHasH2HLoss(x.activeField,x.horse))
+        .filter(x=>!x.horse.scratched && !x.pass && x.consensus?.level==='high' && !topPickHasStrongH2HLoss(x.activeField,x.horse,x))
         .map(x=>({...x,cardStrength:cardStrengthScore(x)}))
         .sort((a,b)=>b.cardStrength-a.cardStrength)[0] || null;
 
@@ -4972,7 +4972,7 @@ function computeRaceCard(){
         !x.close &&
         !x.pass &&
         x.consensus?.level==='high' &&
-        !topPickHasH2HLoss(x.activeField,x.horse) &&
+        !topPickHasStrongH2HLoss(x.activeField,x.horse,x) &&
         (
             x.bestProfile?.qualifies ||
             (
@@ -5000,7 +5000,7 @@ function computeRaceCard(){
           ${x.ppGap!==null && x.ppGap!==undefined?`<span class="badge badge-green">PP +${x.ppGap.toFixed(1)}</span>`:''}
           ${x.paceGate?.projection?`<span class="badge badge-blue">PACE ${safe(x.paceGate.projection.label)}</span>`:''}
           <div class="metric-line">${safe(x.quality.text)}</div>
-          ${topPickH2HWarning(x.activeField,x.horse)}
+          ${topPickH2HWarning(x.activeField,x.horse,x)}
         </div>`).join("") :
         '<div class="warning-box"><b>No race qualifies under the restored v7.30 Best Races logic today.</b> Review contenders, but do not force a wager.</div>'}
     </div>`;
@@ -5484,23 +5484,32 @@ function renderH2HGroup(group){
 }
 
 
-function topPickHasH2HLoss(field, topHorse){
-    if(!topHorse) return false;
-    const groups=currentRaceH2HGroups(field || []);
-    return groups.some(group=>{
-        const mine=group.runners.find(x=>x.horse && x.horse.id===topHorse.id);
-        if(!mine) return false;
-        const myFin=h2hFinishNumber(mine.pp.fin);
-        if(myFin===null) return false;
-        return group.runners.some(other=>{
-            if(!other.horse || other.horse.id===topHorse.id) return false;
-            const otherFin=h2hFinishNumber(other.pp.fin);
-            return otherFin!==null && otherFin < myFin;
-        });
+function topPickH2HContext(field, topHorse, race){
+  const z={hasLoss:false,strong:false};
+  if(!topHorse) return z;
+  const ts=normalizeSurface(race?.surface||race?.surfaceType||"");
+  const td=number(race?.distanceFurlongs||race?.distance||0);
+  currentRaceH2HGroups(field||[]).forEach(g=>{
+    const me=g.runners.find(x=>x.horse?.id===topHorse.id);
+    if(!me) return;
+    const mf=h2hFinishNumber(me.pp.fin); if(mf===null) return;
+    g.runners.forEach(o=>{
+      if(!o.horse||o.horse.id===topHorse.id) return;
+      const of=h2hFinishNumber(o.pp.fin);
+      if(of!==null && of<mf){
+        z.hasLoss=true;
+        const ps=normalizeSurface(me.pp.surface||me.pp.surf||me.pp.trackSurface||"");
+        const pd=number(me.pp.distanceFurlongs||me.pp.distance||me.pp.dist||0);
+        if(ts&&ps&&ts===ps&&td&&pd&&Math.abs(td-pd)<=1) z.strong=true;
+      }
     });
+  });
+  return z;
 }
+function topPickHasH2HLoss(field,topHorse,race){return topPickH2HContext(field,topHorse,race).hasLoss;}
+function topPickHasStrongH2HLoss(field,topHorse,race){return topPickH2HContext(field,topHorse,race).strong;}
 
-function topPickH2HWarning(field, topHorse){
+function topPickH2HWarning(field, topHorse, race){
 
     if(!topHorse) return "";
 
@@ -6321,6 +6330,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.38 · iPhone/Safari build 2026-09-10</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.39 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
