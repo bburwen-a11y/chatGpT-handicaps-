@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Horse Handicap v7.42 · September 10, 2026 — iPhone / Safari</title>
+<title>Horse Handicap v7.43 · September 10, 2026 — iPhone / Safari</title>
 
 <style>
 :root{
@@ -1009,6 +1009,10 @@ Full Race Cards
 Decision Board
 </button>
 
+<button data-tab="top4">
+Top 4
+</button>
+
 <button data-tab="analysis">
 Contenders / Questionable / Pretenders
 </button>
@@ -1019,6 +1023,15 @@ Contenders / Questionable / Pretenders
 <section id="cardSection" style="display:none;"></section>
 
 <section id="bestSection" style="display:none;"></section>
+
+<section id="top4Section" style="display:none;">
+  <div class="section-head"><div>
+    <span class="step">TOP 4</span>
+    <h2>TOP 4 CONTENDER SET</h2>
+    <p>Separate contender view showing the model's four highest-ranked active horses in each race. Best Bet logic is unchanged.</p>
+  </div></div>
+  <div id="top4Board"></div>
+</section>
 
 <section id="analysisSection" style="display:none;"></section>
 
@@ -5197,7 +5210,34 @@ function computeRaceCard(){
    TABS
 ============================================================ */
 
+function renderTop4Board(){
+    const box=$("top4Board");
+    if(!box) return;
+    const raceKeys=Object.keys(computedRaces).sort((a,b)=>number(a)-number(b));
+    let html="";
+    raceKeys.forEach(raceNum=>{
+        const activeField=(computedRaces[raceNum]||[]).filter(h=>!h.scratched);
+        if(!activeField.length) return;
+        const scored=calculateProbabilities(activeField).slice(0,4);
+        html += `<div class="race-card race-anchor-target" id="top4-race-${safe(raceNum)}">
+          <h3><span class="race-number-link" onclick="goToContendersRace('${safe(raceNum)}')">Race ${safe(raceNum)}</span></h3>
+          <div class="small-note">Top ${scored.length} of ${activeField.length} active runners · tap race number for full Contenders.</div>
+          ${scored.map((x,i)=>{
+              const h=x.horse;
+              const cons=signalConsensus(activeField,h);
+              return `<div class="metric-line" style="padding:8px 0;border-bottom:1px solid rgba(0,0,0,.08);">
+                <b>${i+1}. #${safe(h.post||h.pgm||"")} ${safe(h.horse)}</b>
+                · ${(x.probability*100).toFixed(1)}%
+                · ${safe(cons?.label || cons?.level || "")}
+              </div>`;
+          }).join("")}
+        </div>`;
+    });
+    box.innerHTML=html || `<div class="empty-state">Compute Race Card to display the Top 4 contender set.</div>`;
+}
+
 function showTab(tab){
+    if(tab==="top4") renderTop4Board();
 
     $("cardSection").style.display =
         tab === "card"
@@ -5215,6 +5255,13 @@ function showTab(tab){
 
     $("analysisSection").style.display =
         tab === "analysis"
+        ?
+        "block"
+        :
+        "none";
+
+    $("top4Section").style.display =
+        tab === "top4"
         ?
         "block"
         :
@@ -6484,6 +6531,6 @@ renderRows();
 
 </script>
 
-<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.42 · iPhone/Safari build 2026-09-10</div>
+<div style="text-align:center;padding:12px 0 22px;font-family:var(--mono);font-size:10px;color:var(--ink-soft);opacity:.75;">Horse Handicap v7.43 · iPhone/Safari build 2026-09-10</div>
 </body>
 </html>
